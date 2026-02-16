@@ -12,15 +12,28 @@ from app.models.requests import (
     ResumeAnalysisRequest,
     JiraSignalRequest,
     ResourceMatchRequest,
+    JobParsingRequest,
+    ResumeProfileRequest,
+    ProjectParsingRequest,
+    SignalAnalysisRequest,
 )
 from app.models.responses import (
     ResumeAnalysisResponse,
+    ResumeSignalResponse,
     JiraSignalResponse,
     ResourceMatchResponse,
+    JobParsingResponse,
+    ResumeProfileResponse,
+    ProjectParsingResponse,
+    SignalAnalysisResponse,
 )
-from app.services.resume_analyzer import analyze_resume
+from app.services.resume_analyzer import analyze_resume, extract_resume_signals
 from app.services.jira_signal_extractor import extract_jira_signals
 from app.services.resource_matcher import match_project_resources
+from app.services.job_parser import parse_job_description
+from app.services.resume_profile_parser import parse_resume_profile
+from app.services.project_parser import parse_project_requirements
+from app.services.signal_analyzer import analyze_signals
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -88,6 +101,27 @@ async def analyze_resume_endpoint(request: ResumeAnalysisRequest) -> ResumeAnaly
 
 
 @app.post(
+    "/extract-resume-signals",
+    response_model=ResumeSignalResponse,
+    tags=["analysis"],
+    summary="Extract raw resume signals without computing an overall score",
+)
+async def extract_resume_signals_endpoint(request: ResumeAnalysisRequest) -> ResumeSignalResponse:
+    """Extract 9 measurable signals from a resume for configurable scoring.
+
+    Unlike /analyze-resume, this endpoint does NOT return an overall_score.
+    The PHP application computes the final score using per-organisation weights.
+    """
+    try:
+        return await extract_resume_signals(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /extract-resume-signals")
+        raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+@app.post(
     "/extract-jira-signals",
     response_model=JiraSignalResponse,
     tags=["analysis"],
@@ -122,6 +156,75 @@ async def match_project_resources_endpoint(request: ResourceMatchRequest) -> Res
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Unhandled error in /match-project-resources")
+        raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+@app.post(
+    "/parse-job-description",
+    response_model=JobParsingResponse,
+    tags=["parsing"],
+    summary="Parse a job description document into structured fields",
+)
+async def parse_job_description_endpoint(request: JobParsingRequest) -> JobParsingResponse:
+    """Extract structured job posting fields from an unstructured job description document."""
+    try:
+        return await parse_job_description(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /parse-job-description")
+        raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+@app.post(
+    "/parse-resume-profile",
+    response_model=ResumeProfileResponse,
+    tags=["parsing"],
+    summary="Extract candidate profile fields from a resume",
+)
+async def parse_resume_profile_endpoint(request: ResumeProfileRequest) -> ResumeProfileResponse:
+    """Extract biographical and professional fields from a resume for candidate profile creation."""
+    try:
+        return await parse_resume_profile(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /parse-resume-profile")
+        raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+@app.post(
+    "/parse-project-requirements",
+    response_model=ProjectParsingResponse,
+    tags=["parsing"],
+    summary="Parse a project requirement document into structured fields",
+)
+async def parse_project_requirements_endpoint(request: ProjectParsingRequest) -> ProjectParsingResponse:
+    """Extract structured project fields from an unstructured requirement document."""
+    try:
+        return await parse_project_requirements(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /parse-project-requirements")
+        raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+@app.post(
+    "/analyze-signals",
+    response_model=SignalAnalysisResponse,
+    tags=["intelligence"],
+    summary="Analyze employee performance signals and compute meta-signals",
+)
+async def analyze_signals_endpoint(request: SignalAnalysisRequest) -> SignalAnalysisResponse:
+    """Compute meta-signals (Consistency Index, Recovery Signal, etc.) from raw
+    performance metrics. Returns only objective, measurable analysis."""
+    try:
+        return await analyze_signals(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /analyze-signals")
         raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
 
 

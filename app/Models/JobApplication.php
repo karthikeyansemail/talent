@@ -8,13 +8,15 @@ class JobApplication extends Model
 {
     protected $fillable = [
         'job_posting_id', 'candidate_id', 'resume_id', 'stage', 'stage_notes',
-        'applied_at', 'ai_score', 'ai_analysis', 'ai_analyzed_at', 'rejection_reason',
+        'applied_at', 'ai_score', 'ai_analysis', 'ai_signals', 'ai_score_version',
+        'ai_analyzed_at', 'rejection_reason',
     ];
 
     protected function casts(): array
     {
         return [
             'ai_analysis' => 'array',
+            'ai_signals' => 'array',
             'ai_score' => 'decimal:2',
             'applied_at' => 'datetime',
             'ai_analyzed_at' => 'datetime',

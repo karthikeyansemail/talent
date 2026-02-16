@@ -86,6 +86,13 @@ class EmployeeProfile(BaseModel):
     )
 
 
+class SprintSheetSummary(BaseModel):
+    """Summary of an uploaded sprint spreadsheet for AI context."""
+
+    filename: str = Field(default="", description="Original filename")
+    summary: dict = Field(default_factory=dict, description="Parsed sprint data summary")
+
+
 class ResourceMatchRequest(BaseModel):
     """Request payload for project-resource matching."""
 
@@ -94,4 +101,42 @@ class ResourceMatchRequest(BaseModel):
     )
     employees: list[EmployeeProfile] = Field(
         ..., description="Candidate employee profiles"
+    )
+    sprint_data: list[SprintSheetSummary] = Field(
+        default_factory=list,
+        description="Optional sprint spreadsheet summaries for additional context",
+    )
+
+
+class JobParsingRequest(BaseModel):
+    """Request payload for parsing a job description document."""
+
+    document_text: str = Field(
+        ..., description="Full text extracted from a job description document"
+    )
+
+
+class ResumeProfileRequest(BaseModel):
+    """Request payload for extracting candidate profile from a resume."""
+
+    resume_text: str = Field(
+        ..., description="Full text extracted from a resume document"
+    )
+
+
+class ProjectParsingRequest(BaseModel):
+    """Request payload for parsing a project requirement document."""
+
+    document_text: str = Field(
+        ..., description="Full text extracted from a project requirement document"
+    )
+
+
+class SignalAnalysisRequest(BaseModel):
+    """Request payload for analyzing employee performance signals."""
+
+    employee_name: str = Field(..., description="Name of the employee")
+    period: str = Field(..., description="Time period, e.g. 2026-W06")
+    signals: list[dict] = Field(
+        ..., description="List of raw signal data points"
     )

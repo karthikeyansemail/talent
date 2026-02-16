@@ -32,7 +32,7 @@ class ApplicationController extends Controller
 
         $request->validate([
             'candidate_id' => 'required|exists:candidates,id',
-            'resume_id' => 'required|exists:resumes,id',
+            'resume_id' => 'nullable|exists:resumes,id',
         ]);
 
         $existing = JobApplication::where('job_posting_id', $job->id)

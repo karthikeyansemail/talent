@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'ensure.org' => \App\Http\Middleware\EnsureOrganization::class,
+            'premium' => \App\Http\Middleware\CheckPremium::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -4,7 +4,16 @@
 @section('content')
 <div class="page-header">
     <h1>Employees</h1>
-    <a href="{{ route('employees.create') }}" class="btn btn-primary">+ New Employee</a>
+    <div style="display:flex;gap:10px">
+        <a href="{{ route('employees.import') }}" class="btn btn-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import
+        </a>
+        <a href="{{ route('employees.create') }}" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Employee
+        </a>
+    </div>
 </div>
 <div class="filter-bar">
     <form method="GET" style="display:flex;gap:12px;flex-wrap:wrap">
@@ -37,7 +46,12 @@
                 @endif
                 </div>
             </td>
-            <td><a href="{{ route('employees.show', $emp) }}" class="btn btn-sm btn-secondary">View</a></td>
+            <td>
+                <a href="{{ route('employees.show', $emp) }}" class="btn btn-sm btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    View
+                </a>
+            </td>
         </tr>
         @empty
         <tr><td colspan="6" class="text-center text-muted">No employees found.</td></tr>

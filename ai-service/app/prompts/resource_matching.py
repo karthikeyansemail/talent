@@ -41,6 +41,39 @@ def get_resource_matching_prompt(request: ResourceMatchRequest) -> str:
         f"  [{i + 1}]\n{block}" for i, block in enumerate(employee_blocks)
     )
 
+    # Build optional sprint data section
+    sprint_section = ""
+    if request.sprint_data:
+        sprint_blocks: list[str] = []
+        for sd in request.sprint_data:
+            summary = sd.summary
+            block = (
+                f"  File: {sd.filename}\n"
+                f"  Total Rows: {summary.get('total_rows', 0)}\n"
+                f"  Unique Employees: {summary.get('unique_employees', 0)}\n"
+                f"  Total Story Points: {summary.get('total_story_points', 0)}\n"
+                f"  Completed Story Points: {summary.get('completed_story_points', 0)}\n"
+                f"  Employee Task Counts: {_json.dumps(summary.get('employee_task_counts', {}))}\n"
+                f"  Status Distribution: {_json.dumps(summary.get('status_distribution', {}))}\n"
+                f"  Sprints: {_json.dumps(summary.get('sprints', {}))}"
+            )
+            sprint_blocks.append(block)
+        sprint_entries = "\n\n".join(
+            f"  [{i + 1}]\n{block}" for i, block in enumerate(sprint_blocks)
+        )
+        sprint_section = f"""
+
+=== SPRINT DATA ({len(request.sprint_data)} spreadsheets) ===
+{sprint_entries}
+
+Use this sprint/task data as additional context:
+- Match employee emails from sprint data to employee profiles above.
+- Employees with higher task completion rates and more story points may indicate \
+stronger execution capability.
+- Consider workload balance -- employees already handling many tasks may be \
+over-allocated.
+- Sprint velocity trends can indicate reliability and consistency."""
+
     return f"""\
 Match the employees below to the project requirements and rank them by fit.
 
@@ -54,6 +87,7 @@ Domain Context: {project.domain_context}
 
 === EMPLOYEES ({len(request.employees)} candidates) ===
 {employees_section}
+{sprint_section}
 
 === INSTRUCTIONS ===
 Return a single JSON object with exactly this structure:

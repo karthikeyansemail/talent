@@ -1,4 +1,4 @@
-"""Unified LLM client supporting OpenAI and Anthropic providers."""
+"""Unified LLM client supporting OpenAI, Azure OpenAI, and Anthropic providers."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 import logging
 import re
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, AsyncAzureOpenAI
 from anthropic import AsyncAnthropic
 
 from app.config import settings
@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class LLMClient:
-    """Thin abstraction over OpenAI and Anthropic chat / messages APIs.
+    """Thin abstraction over OpenAI, Azure OpenAI, and Anthropic chat / messages APIs.
 
     The active provider is chosen at startup via the ``LLM_PROVIDER``
-    environment variable (defaults to ``"openai"``).
+    environment variable (defaults to ``"azure_openai"``).
     """
 
     def __init__(self) -> None:
@@ -27,13 +27,20 @@ class LLMClient:
         if self.provider == "openai":
             self.client = AsyncOpenAI(api_key=settings.openai_api_key)
             self.model = settings.openai_model
+        elif self.provider == "azure_openai":
+            self.client = AsyncAzureOpenAI(
+                azure_endpoint=settings.azure_openai_endpoint,
+                api_key=settings.azure_openai_api_key,
+                api_version=settings.azure_openai_api_version,
+            )
+            self.model = settings.azure_openai_deployment
         elif self.provider == "anthropic":
             self.client = AsyncAnthropic(api_key=settings.anthropic_api_key)
             self.model = settings.anthropic_model
         else:
             raise ValueError(
                 f"Unsupported LLM provider: '{self.provider}'. "
-                "Choose 'openai' or 'anthropic'."
+                "Choose 'openai', 'azure_openai', or 'anthropic'."
             )
 
         logger.info(
@@ -62,7 +69,7 @@ class LLMClient:
             The model's text reply.
         """
         try:
-            if self.provider == "openai":
+            if self.provider in ("openai", "azure_openai"):
                 return await self._generate_openai(prompt, system_message)
             else:
                 return await self._generate_anthropic(prompt, system_message)
@@ -71,6 +78,7 @@ class LLMClient:
             raise
 
     async def _generate_openai(self, prompt: str, system_message: str) -> str:
+        """Works for both OpenAI and Azure OpenAI (same SDK interface)."""
         messages: list[dict] = []
         if system_message:
             messages.append({"role": "system", "content": system_message})
@@ -111,7 +119,7 @@ class LLMClient:
         """Generate a response and parse it as JSON.
 
         The method is lenient: it will attempt to extract a JSON object from
-        markdown fenced code blocks (````json ... ````), or fall back to parsing
+        markdown fenced code blocks (```json ... ```), or fall back to parsing
         the raw response text directly.
 
         Returns

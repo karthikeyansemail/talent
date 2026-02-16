@@ -10,6 +10,7 @@ class Employee extends Model
         'user_id', 'organization_id', 'first_name', 'last_name', 'email',
         'department_id', 'designation', 'resume_id', 'skills_from_resume',
         'skills_from_jira', 'combined_skill_profile', 'is_active',
+        'import_source', 'external_id',
     ];
 
     protected function casts(): array
@@ -27,7 +28,11 @@ class Employee extends Model
     public function department() { return $this->belongsTo(Department::class); }
     public function resume() { return $this->belongsTo(Resume::class); }
     public function jiraTasks() { return $this->hasMany(EmployeeJiraTask::class); }
+    public function zohoTasks() { return $this->hasMany(EmployeeZohoTask::class); }
     public function resourceMatches() { return $this->hasMany(ProjectResourceMatch::class); }
+    public function signals() { return $this->hasMany(EmployeeSignal::class); }
+    public function signalSnapshots() { return $this->hasMany(SignalSnapshot::class); }
+    public function latestSignalSnapshot() { return $this->hasOne(SignalSnapshot::class)->latestOfMany(); }
 
     public function getFullNameAttribute(): string
     {

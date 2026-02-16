@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Employee;
 use App\Models\Project;
 use App\Models\ProjectResourceMatch;
+use App\Models\ProjectSprintSheet;
 use App\Services\AiServiceClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -31,8 +32,18 @@ class MatchProjectResourcesJob implements ShouldQueue
             return;
         }
 
+        // Gather sprint sheet data as additional context
+        $sprintData = ProjectSprintSheet::where('project_id', $this->project->id)
+            ->where('status', 'parsed')
+            ->get()
+            ->map(fn($sheet) => [
+                'filename' => $sheet->original_filename,
+                'summary' => $sheet->parsed_summary ?? [],
+            ])
+            ->toArray();
+
         $client = new AiServiceClient();
-        $result = $client->matchProjectResources([
+        $payload = [
             'project' => [
                 'name' => $this->project->name,
                 'description' => $this->project->description ?? '',
@@ -48,7 +59,13 @@ class MatchProjectResourcesJob implements ShouldQueue
                 'skills_from_jira' => $e->skills_from_jira ?? [],
                 'combined_skill_profile' => $e->combined_skill_profile ?? [],
             ])->toArray(),
-        ], $this->project->organization_id);
+        ];
+
+        if (!empty($sprintData)) {
+            $payload['sprint_data'] = $sprintData;
+        }
+
+        $result = $client->matchProjectResources($payload, $this->project->organization_id);
 
         if (isset($result['matches'])) {
             // Clear old matches

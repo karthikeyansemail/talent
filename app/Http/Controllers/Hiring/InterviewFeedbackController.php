@@ -18,10 +18,10 @@ class InterviewFeedbackController extends Controller
 
         $validated = $request->validate([
             'stage' => 'required|string',
-            'rating' => 'nullable|integer|min:1|max:5',
+            'rating' => 'required|integer|min:1|max:5',
             'strengths' => 'nullable|string',
             'weaknesses' => 'nullable|string',
-            'recommendation' => 'nullable|in:strong_yes,yes,neutral,no,strong_no',
+            'recommendation' => 'required|in:strong_yes,yes,neutral,no,strong_no',
             'notes' => 'nullable|string',
         ]);
 
