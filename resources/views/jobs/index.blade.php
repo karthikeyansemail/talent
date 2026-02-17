@@ -11,27 +11,58 @@
 </div>
 
 <div class="filter-bar">
-    <form method="GET" style="display:flex;gap:12px;flex-wrap:wrap">
-        <input type="text" name="search" class="form-control" placeholder="Search jobs..." value="{{ request('search') }}">
-        <select name="status" class="form-control" onchange="this.form.submit()">
+    <form method="GET" style="display:flex;gap:8px;align-items:center;flex-wrap:nowrap;width:100%">
+        <input type="text" name="search" class="form-control" placeholder="Search jobs..." value="{{ request('search') }}" style="flex:1 1 200px;height:40px;padding:0 12px;font-size:13px;box-sizing:border-box">
+        <select name="status" class="form-control" onchange="this.form.submit()" style="width:130px;flex:0 0 130px;height:40px;padding:0 28px 0 10px;font-size:13px;box-sizing:border-box;background-position:right 8px center;background-size:14px">
             <option value="">All Status</option>
             @foreach(['draft','open','on_hold','closed'] as $s)
             <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
             @endforeach
         </select>
-        <select name="department_id" class="form-control" onchange="this.form.submit()">
+        <select name="department_id" class="form-control" onchange="this.form.submit()" style="width:180px;flex:0 0 180px;height:40px;padding:0 28px 0 10px;font-size:13px;box-sizing:border-box;background-position:right 8px center;background-size:14px">
             <option value="">All Departments</option>
             @foreach($departments as $dept)
             <option value="{{ $dept->id }}" {{ request('department_id') == $dept->id ? 'selected' : '' }}>{{ $dept->name }}</option>
             @endforeach
         </select>
-        <button type="submit" class="btn btn-secondary">Filter</button>
+        @if(request('sort'))<input type="hidden" name="sort" value="{{ request('sort') }}">@endif
+        @if(request('direction'))<input type="hidden" name="direction" value="{{ request('direction') }}">@endif
+        <button type="submit" class="btn btn-secondary" style="height:40px;padding:0 16px;font-size:13px;box-sizing:border-box;flex:0 0 auto;white-space:nowrap">Filter</button>
     </form>
 </div>
 
+@php
+$cs = $sort ?? 'created_at';
+$cd = $direction ?? 'desc';
+$qs = request()->only(['search', 'status', 'department_id']);
+@endphp
+
 <div class="card">
     <table>
-        <thead><tr><th>Title</th><th>Department</th><th>Type</th><th>Experience</th><th>Status</th><th>Applications</th><th>Created</th><th></th></tr></thead>
+        <thead>
+            <tr>
+                <th class="sortable {{ $cs === 'title' ? 'sorted' : '' }}">
+                    <a href="{{ route('jobs.index', array_merge($qs, ['sort' => 'title', 'direction' => $cs === 'title' && $cd === 'asc' ? 'desc' : 'asc'])) }}">Title @if($cs === 'title')<span class="sort-arrow">{{ $cd === 'asc' ? '▲' : '▼' }}</span>@endif</a>
+                </th>
+                <th>Department</th>
+                <th class="sortable {{ $cs === 'employment_type' ? 'sorted' : '' }}">
+                    <a href="{{ route('jobs.index', array_merge($qs, ['sort' => 'employment_type', 'direction' => $cs === 'employment_type' && $cd === 'asc' ? 'desc' : 'asc'])) }}">Type @if($cs === 'employment_type')<span class="sort-arrow">{{ $cd === 'asc' ? '▲' : '▼' }}</span>@endif</a>
+                </th>
+                <th class="sortable {{ $cs === 'min_experience' ? 'sorted' : '' }}">
+                    <a href="{{ route('jobs.index', array_merge($qs, ['sort' => 'min_experience', 'direction' => $cs === 'min_experience' && $cd === 'asc' ? 'desc' : 'asc'])) }}">Experience @if($cs === 'min_experience')<span class="sort-arrow">{{ $cd === 'asc' ? '▲' : '▼' }}</span>@endif</a>
+                </th>
+                <th class="sortable {{ $cs === 'status' ? 'sorted' : '' }}">
+                    <a href="{{ route('jobs.index', array_merge($qs, ['sort' => 'status', 'direction' => $cs === 'status' && $cd === 'asc' ? 'desc' : 'asc'])) }}">Status @if($cs === 'status')<span class="sort-arrow">{{ $cd === 'asc' ? '▲' : '▼' }}</span>@endif</a>
+                </th>
+                <th class="sortable {{ $cs === 'applications_count' ? 'sorted' : '' }}">
+                    <a href="{{ route('jobs.index', array_merge($qs, ['sort' => 'applications_count', 'direction' => $cs === 'applications_count' && $cd === 'asc' ? 'desc' : 'asc'])) }}">Applications @if($cs === 'applications_count')<span class="sort-arrow">{{ $cd === 'asc' ? '▲' : '▼' }}</span>@endif</a>
+                </th>
+                <th class="sortable {{ $cs === 'created_at' ? 'sorted' : '' }}">
+                    <a href="{{ route('jobs.index', array_merge($qs, ['sort' => 'created_at', 'direction' => $cs === 'created_at' && $cd === 'asc' ? 'desc' : 'asc'])) }}">Created @if($cs === 'created_at')<span class="sort-arrow">{{ $cd === 'asc' ? '▲' : '▼' }}</span>@endif</a>
+                </th>
+                <th></th>
+            </tr>
+        </thead>
         <tbody>
         @forelse($jobs as $job)
         <tr>
@@ -40,7 +71,7 @@
             <td>{{ ucwords(str_replace('_', ' ', $job->employment_type)) }}</td>
             <td>{{ $job->min_experience }}-{{ $job->max_experience }} yrs</td>
             <td>@include('components.stage-badge', ['stage' => $job->status])</td>
-            <td>{{ $job->applications_count ?? $job->applications->count() }}</td>
+            <td>{{ $job->applications_count }}</td>
             <td class="text-sm text-muted">{{ $job->created_at->format('M d, Y') }}</td>
             <td>
                 <div class="table-actions">

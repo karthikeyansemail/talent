@@ -2,7 +2,7 @@
 @section('title', 'Register')
 @section('content')
 <h1>Create Account</h1>
-<p>Set up your organization on Talent Intelligence</p>
+<p>Set up your organization on {{ $branding['app_name'] ?? 'Nalam Compass' }}</p>
 <form method="POST" action="{{ url('/register') }}">
     @csrf
     <div class="form-group">

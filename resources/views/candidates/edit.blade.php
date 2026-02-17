@@ -35,6 +35,10 @@
                     </select>
                 </div>
             </div>
+            <div class="form-group">
+                <label>Skills</label>
+                <input type="text" name="skills" class="form-control tag-input" value="{{ old('skills', $candidate->skills ? implode(', ', $candidate->skills) : '') }}" placeholder="Type a skill and press Enter">
+            </div>
             <div class="form-group"><label>Notes</label><textarea name="notes" class="form-control" rows="3">{{ old('notes', $candidate->notes) }}</textarea></div>
             <div class="flex gap-10">
                 <button type="submit" class="btn btn-primary">

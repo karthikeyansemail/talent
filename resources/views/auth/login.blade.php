@@ -2,7 +2,7 @@
 @section('title', 'Sign In')
 @section('content')
 <h1 style="text-align:center">Welcome back</h1>
-<p style="text-align:center">Sign in to your Talent Intelligence account</p>
+<p style="text-align:center">Sign in to your {{ $branding['app_name'] ?? 'Nalam Compass' }} account</p>
 <form method="POST" action="{{ url('/login') }}">
     @csrf
     <div class="form-group">

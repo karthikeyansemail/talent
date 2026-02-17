@@ -25,6 +25,8 @@ use App\Http\Controllers\Intelligence\SignalConfigController;
 use App\Http\Controllers\ResourceAllocation\ProjectParserController;
 use App\Http\Controllers\Settings\LlmConfigController;
 use App\Http\Controllers\Settings\ScoringRulesController;
+use App\Http\Controllers\Settings\DepartmentController;
+use App\Http\Controllers\Settings\PlatformBrandingController;
 
 // Auth
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -53,6 +55,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::resource('jobs', JobController::class);
         Route::post('jobs/{job}/status', [JobController::class, 'updateStatus'])->name('jobs.updateStatus');
+        Route::get('jobs/{job}/download-jd', [JobController::class, 'downloadJd'])->name('jobs.downloadJd');
 
         Route::resource('candidates', CandidateController::class);
         Route::post('candidates/{candidate}/apply-to-jobs', [CandidateController::class, 'applyToJobs'])->name('candidates.applyToJobs');
@@ -61,9 +64,11 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('jobs/{job}/applications', [ApplicationController::class, 'index'])->name('applications.index');
         Route::post('jobs/{job}/applications', [ApplicationController::class, 'store'])->name('applications.store');
+        Route::post('jobs/{job}/bulk-apply', [ApplicationController::class, 'bulkApply'])->name('applications.bulkApply');
         Route::get('applications/{application}', [ApplicationController::class, 'show'])->name('applications.show');
         Route::put('applications/{application}/stage', [ApplicationController::class, 'updateStage'])->name('applications.updateStage');
         Route::post('applications/{application}/analyze', [ApplicationController::class, 'triggerAiAnalysis'])->name('applications.analyze');
+        Route::get('applications/{application}/analysis-status', [ApplicationController::class, 'analysisStatus'])->name('applications.analysisStatus');
 
         Route::post('applications/{application}/feedback', [InterviewFeedbackController::class, 'store'])->name('feedback.store');
         Route::delete('feedback/{feedback}', [InterviewFeedbackController::class, 'destroy'])->name('feedback.destroy');
@@ -92,6 +97,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::resource('projects', ProjectController::class);
         Route::post('projects/{project}/find-resources', [ProjectController::class, 'findResources'])->name('projects.findResources');
+        Route::get('projects/{project}/match-status', [ProjectController::class, 'matchStatus'])->name('projects.matchStatus');
         Route::post('projects/{project}/sprint-sheets', [ProjectController::class, 'uploadSprintSheets'])->name('projects.sprintSheets.upload');
         Route::delete('projects/{project}/sprint-sheets/{sprintSheet}', [ProjectController::class, 'deleteSprintSheet'])->name('projects.sprintSheets.destroy');
         Route::post('projects/{project}/resources/{match}/assign', [ResourceMatchController::class, 'assign'])->name('resources.assign');
@@ -103,6 +109,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('organization', [OrganizationController::class, 'edit'])->name('organization.edit');
         Route::put('organization', [OrganizationController::class, 'update'])->name('organization.update');
         Route::resource('users', UserManagementController::class)->except(['show']);
+        Route::get('departments', [DepartmentController::class, 'index'])->name('departments.index');
+        Route::post('departments', [DepartmentController::class, 'store'])->name('departments.store');
+        Route::put('departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
+        Route::delete('departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
         Route::post('users/{user}/toggle-active', [UserManagementController::class, 'toggleActive'])->name('users.toggleActive');
 
         // Integrations hub
@@ -127,6 +137,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('integrations/zoho-people/{connection}/test', [IntegrationsController::class, 'testZohoPeople'])->name('integrations.zohoPeople.test');
         Route::post('integrations/zoho-people/{connection}/sync', [IntegrationsController::class, 'syncZohoPeople'])->name('integrations.zohoPeople.sync');
         Route::delete('integrations/zoho-people/{connection}', [IntegrationsController::class, 'destroyZohoPeople'])->name('integrations.zohoPeople.destroy');
+    });
+
+    // Platform Branding (super_admin only)
+    Route::middleware(['role:super_admin'])->prefix('settings')->name('settings.')->group(function () {
+        Route::get('platform-branding', [PlatformBrandingController::class, 'edit'])->name('platformBranding');
+        Route::put('platform-branding', [PlatformBrandingController::class, 'update'])->name('platformBranding.update');
+        Route::put('platform-branding/org/{organization}', [PlatformBrandingController::class, 'updateOrgBranding'])->name('platformBranding.updateOrg');
     });
 
     // Intelligence (premium feature, org_admin + resource_manager)

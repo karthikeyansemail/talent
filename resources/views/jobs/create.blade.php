@@ -46,7 +46,7 @@
         </span>
     </div>
     <div class="card-body">
-        <form method="POST" action="{{ route('jobs.store') }}">
+        <form method="POST" action="{{ route('jobs.store') }}" id="jobForm">
             @csrf
             <div class="form-row">
                 <div class="form-group">
@@ -70,8 +70,18 @@
             </div>
 
             <div class="form-group">
+                <label>Key Responsibilities</label>
+                <textarea name="key_responsibilities" class="form-control" rows="4" placeholder="Specific duties and day-to-day tasks...">{{ old('key_responsibilities') }}</textarea>
+            </div>
+
+            <div class="form-group">
                 <label>Requirements</label>
                 <textarea name="requirements" class="form-control" rows="3">{{ old('requirements') }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Expectations</label>
+                <textarea name="expectations" class="form-control" rows="3" placeholder="Performance expectations and success criteria...">{{ old('expectations') }}</textarea>
             </div>
 
             <div class="form-row">
@@ -99,6 +109,11 @@
                     <input type="hidden" name="nice_to_have_skills" value="{{ old('nice_to_have_skills') }}">
                     <input type="text" placeholder="Type skill and press Enter">
                 </div>
+            </div>
+
+            <div class="form-group">
+                <label>Skill Experience Details</label>
+                <textarea name="skill_experience_details" class="form-control" rows="3" placeholder="e.g. React: 3-5 years&#10;Node.js: 2+ years&#10;AWS: 1+ year">{{ old('skill_experience_details') }}</textarea>
             </div>
 
             <div class="form-row">
@@ -129,12 +144,23 @@
             </div>
 
             <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Internal notes (not extracted by AI)...">{{ old('notes') }}</textarea>
+            </div>
+
+            <div class="form-group">
                 <label>Status *</label>
                 <select name="status" class="form-control" required>
                     <option value="draft">Draft</option>
                     <option value="open">Open</option>
                 </select>
             </div>
+
+            {{-- Hidden fields for JD file temp storage --}}
+            <input type="hidden" name="_temp_file_path" id="jdTempFilePath">
+            <input type="hidden" name="_temp_file_name" id="jdTempFileName">
+            <input type="hidden" name="_temp_file_type" id="jdTempFileType">
+            <input type="hidden" name="_jd_extracted_text" id="jdExtractedText">
 
             <div class="flex gap-10">
                 <button type="submit" class="btn btn-primary">

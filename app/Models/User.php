@@ -44,4 +44,21 @@ class User extends Authenticatable
     public function isHiringManager(): bool { return $this->role === 'hiring_manager'; }
     public function isResourceManager(): bool { return $this->role === 'resource_manager'; }
     public function isEmployee(): bool { return $this->role === 'employee'; }
+
+    public function currentOrganizationId(): ?int
+    {
+        if ($this->isSuperAdmin() && session()->has('viewing_organization_id')) {
+            return (int) session('viewing_organization_id');
+        }
+        return $this->organization_id;
+    }
+
+    public function currentOrganization(): ?Organization
+    {
+        $currentOrgId = $this->currentOrganizationId();
+        if ($currentOrgId === $this->organization_id) {
+            return $this->organization;
+        }
+        return Organization::find($currentOrgId);
+    }
 }

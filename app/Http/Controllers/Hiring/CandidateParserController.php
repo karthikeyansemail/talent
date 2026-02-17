@@ -48,6 +48,11 @@ class CandidateParserController extends Controller
                 ], 503);
             }
 
+            // Fallback: if AI didn't extract email, try regex on raw text
+            if (empty($result['email'])) {
+                $result['email'] = DocumentTextExtractor::extractEmail($text) ?? '';
+            }
+
             // Attach temp file info for Resume creation on candidate save
             $result['_temp_file_path'] = $tempPath;
             $result['_temp_file_name'] = $file->getClientOriginalName();

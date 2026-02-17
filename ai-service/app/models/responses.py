@@ -213,13 +213,23 @@ class JobParsingResponse(BaseModel):
     """Structured fields extracted from a job description document."""
 
     title: str = Field(default="", description="Job title")
-    description: str = Field(default="", description="Job description / responsibilities")
+    description: str = Field(default="", description="High-level role overview and purpose")
+    key_responsibilities: str = Field(
+        default="", description="Specific day-to-day duties and responsibilities"
+    )
     requirements: str = Field(default="", description="Qualifications and requirements")
+    expectations: str = Field(
+        default="", description="Performance expectations and success criteria"
+    )
     required_skills: list[str] = Field(
         default_factory=list, description="Required technical skills"
     )
     nice_to_have_skills: list[str] = Field(
         default_factory=list, description="Preferred / nice-to-have skills"
+    )
+    skill_experience_details: str = Field(
+        default="",
+        description="Per-skill experience requirements, e.g. 'React: 3-5 years'",
     )
     min_experience: int = Field(default=0, ge=0, description="Minimum years of experience")
     max_experience: int = Field(default=10, ge=0, description="Maximum years of experience")

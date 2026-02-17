@@ -8,12 +8,15 @@ class Candidate extends Model
 {
     protected $fillable = [
         'organization_id', 'first_name', 'last_name', 'email', 'phone',
-        'current_company', 'current_title', 'experience_years', 'source', 'notes',
+        'current_company', 'current_title', 'experience_years', 'skills', 'source', 'notes',
     ];
 
     protected function casts(): array
     {
-        return ['experience_years' => 'decimal:1'];
+        return [
+            'experience_years' => 'decimal:1',
+            'skills' => 'array',
+        ];
     }
 
     public function organization() { return $this->belongsTo(Organization::class); }

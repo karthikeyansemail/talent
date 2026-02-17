@@ -352,7 +352,22 @@ a:hover {
 /* ======================== Content Area ======================== */
 .content {
     padding: 28px 32px 40px;
-    max-width: 1400px;
+}
+
+/* Small-screen blocker — shown below 1300px */
+.small-screen-blocker {
+    display: none;
+    position: fixed; inset: 0; z-index: 99999;
+    background: #fff;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 40px;
+}
+.small-screen-blocker svg { color: var(--primary); margin-bottom: 16px; }
+.small-screen-blocker h2 { font-size: 20px; margin-bottom: 8px; color: var(--gray-900); }
+.small-screen-blocker p { color: var(--gray-500); font-size: 14px; max-width: 360px; line-height: 1.6; }
+@media (max-width: 1299px) {
+    .small-screen-blocker { display: flex; }
+    .sidebar, .main-content { display: none; }
 }
 
 /* ======================== Page Header ======================== */
@@ -484,6 +499,13 @@ th {
     white-space: nowrap;
 }
 
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable a { color: var(--gray-500); text-decoration: none; display: flex; align-items: center; gap: 4px; }
+th.sortable a:hover { color: var(--gray-800); }
+th.sortable.sorted { background: var(--gray-100); color: var(--gray-800); }
+th.sortable.sorted a { color: var(--gray-800); font-weight: 700; }
+.sort-arrow { font-size: 10px; line-height: 1; }
+
 td {
     padding: 14px 24px;
     text-align: left;
@@ -523,7 +545,8 @@ td a {
 
 .form-control {
     width: 100%;
-    padding: 10px 14px;
+    height: 40px;
+    padding: 0 14px;
     border: 1px solid var(--gray-300);
     border-radius: var(--radius-sm);
     font-size: 14px;
@@ -531,7 +554,8 @@ td a {
     color: var(--gray-800);
     background: var(--white);
     transition: all var(--transition);
-    line-height: 1.5;
+    line-height: 40px;
+    box-sizing: border-box;
 }
 
 .form-control::placeholder {
@@ -549,7 +573,10 @@ td a {
 }
 
 textarea.form-control {
+    height: auto;
     min-height: 100px;
+    padding: 10px 14px;
+    line-height: 1.5;
     resize: vertical;
 }
 
@@ -662,6 +689,28 @@ select.form-control:focus {
 .badge-green { background: var(--success-light); color: #065f46; border: 1px solid var(--success-border); }
 .badge-red { background: var(--danger-light); color: #991b1b; border: 1px solid var(--danger-border); }
 .badge-primary { background: var(--primary); color: var(--white); }
+
+/* Inline Stage Dropdown */
+.stage-select {
+    appearance: none; -webkit-appearance: none;
+    border: 1px solid transparent; border-radius: 9999px;
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    padding: 4px 26px 4px 10px; line-height: 1.4;
+    background-repeat: no-repeat; background-position: right 8px center; background-size: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.stage-select:hover { border-color: var(--gray-300); }
+.stage-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-50); }
+.stage-select.stage-applied { background-color: var(--gray-100); color: var(--gray-600); }
+.stage-select.stage-ai_shortlisted { background-color: var(--primary-50); color: var(--primary-700); }
+.stage-select.stage-hr_screening { background-color: var(--warning-light); color: #92400e; }
+.stage-select.stage-technical_round_1,
+.stage-select.stage-technical_round_2 { background-color: #f5f3ff; color: #6d28d9; }
+.stage-select.stage-offer { background-color: #fff7ed; color: #c2410c; }
+.stage-select.stage-hired { background-color: var(--success-light); color: #065f46; }
+.stage-select.stage-rejected { background-color: var(--danger-light); color: #991b1b; }
+.stage-select.saving { opacity: 0.6; pointer-events: none; }
 
 /* ======================== Tags ======================== */
 .tags {
@@ -1554,9 +1603,38 @@ select.form-control:focus {
     flex-wrap: wrap;
 }
 
-.filter-bar .form-control { width: auto; min-width: 160px; font-size: 13px; padding: 8px 12px; }
-.filter-bar select.form-control { padding-right: 36px; }
-.filter-bar input[type="text"] { min-width: 260px; }
+.filter-bar form { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; width: 100%; }
+select.form-control.filter-select {
+    width: 100px !important;
+    min-width: 0 !important;
+    flex: 0 0 100px !important;
+    height: 36px !important;
+    font-size: 13px !important;
+    padding: 0 24px 0 8px !important;
+    line-height: 36px !important;
+    box-sizing: border-box !important;
+    background-position: right 4px center !important;
+    background-size: 13px !important;
+}
+input.form-control.filter-input {
+    flex: 1 1 auto !important;
+    min-width: 150px !important;
+    width: auto !important;
+    height: 36px !important;
+    font-size: 13px !important;
+    padding: 0 10px !important;
+    line-height: 36px !important;
+    box-sizing: border-box !important;
+}
+button.btn.filter-btn {
+    height: 36px !important;
+    padding: 0 14px !important;
+    font-size: 13px !important;
+    line-height: 36px !important;
+    box-sizing: border-box !important;
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+}
 
 /* ======================== Empty State ======================== */
 .empty-state {
@@ -2002,9 +2080,180 @@ select.form-control:focus {
 }
 .skill-bar .bar .quality-fill { background: linear-gradient(90deg, var(--info, #0ea5e9), var(--primary)); }
 
+/* ======================== Application Chips ======================== */
+.application-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+}
+.application-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 12px;
+    background: var(--gray-100); color: var(--gray-700);
+    font-size: 12px; font-weight: 500; text-decoration: none;
+    transition: all var(--transition); border: 1px solid var(--gray-200);
+}
+.application-chip:hover {
+    background: var(--primary-light, #e0e7ff); border-color: var(--primary);
+    color: var(--primary); text-decoration: none;
+}
+.chip-score {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 22px; height: 18px; border-radius: 9px;
+    font-size: 10px; font-weight: 700; color: white; padding: 0 4px;
+}
+.chip-score.high { background: var(--success); }
+.chip-score.medium { background: var(--warning); }
+.chip-score.low { background: var(--danger); }
+
+/* ======================== Expandable Rows ======================== */
+.expandable-row td { padding: 0 !important; border-top: none !important; }
+.inline-analysis-panel {
+    padding: 20px 24px; background: var(--gray-50);
+    border-top: 1px solid var(--gray-200); border-bottom: 1px solid var(--gray-200);
+}
+.expand-toggle svg { transition: transform 0.2s ease; }
+.expand-toggle.expanded svg { transform: rotate(180deg); }
+
+/* Compact AI score hero for inline analysis */
+.ai-score-hero-compact { padding: 12px 0; }
+.ai-score-hero-compact .score {
+    font-size: 28px; width: 56px; height: 56px;
+    margin: 0 auto; display: flex; align-items: center; justify-content: center;
+}
+
+/* ======================== Compare Toolbar ======================== */
+.compare-toolbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; background: var(--primary-light, #e0e7ff);
+    border: 1px solid var(--primary); border-radius: var(--radius);
+    margin-bottom: 16px; font-size: 13px; font-weight: 500; color: var(--primary);
+}
+.compare-checkbox { cursor: pointer; width: 16px; height: 16px; }
+
+/* ======================== Comparison Grid ======================== */
+.comparison-grid {
+    display: grid; gap: 0;
+}
+.comparison-column {
+    border-right: 1px solid var(--gray-200); padding: 16px; min-width: 200px;
+}
+.comparison-column:last-child { border-right: none; }
+.comparison-header {
+    text-align: center; padding-bottom: 12px; margin-bottom: 12px;
+    border-bottom: 2px solid var(--gray-200);
+}
+.comparison-header .candidate-name { font-size: 15px; font-weight: 600; color: var(--gray-800); }
+.comparison-header .candidate-score {
+    font-size: 28px; font-weight: 700; margin: 8px 0 4px;
+}
+.comparison-header .candidate-score.high { color: var(--success); }
+.comparison-header .candidate-score.medium { color: var(--warning); }
+.comparison-header .candidate-score.low { color: var(--danger); }
+.comparison-header .candidate-recommendation {
+    font-size: 12px; font-weight: 500; color: var(--primary);
+    text-transform: capitalize;
+}
+.comparison-section { margin-bottom: 14px; }
+.comparison-section h5 {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--gray-500); margin-bottom: 6px;
+}
+.comparison-bar {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px;
+}
+.comparison-bar .bar-label { width: 80px; color: var(--gray-600); flex-shrink: 0; }
+.comparison-bar .bar-track {
+    flex: 1; height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden;
+}
+.comparison-bar .bar-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--primary-light, #818cf8), var(--primary));
+}
+.comparison-bar .bar-value { width: 32px; text-align: right; font-weight: 600; color: var(--gray-700); }
+.comparison-list { list-style: none; padding: 0; margin: 0; }
+.comparison-list li {
+    font-size: 12px; color: var(--gray-700); padding: 3px 0;
+    padding-left: 14px; position: relative;
+}
+.comparison-list li::before {
+    content: ''; position: absolute; left: 0; top: 9px;
+    width: 6px; height: 6px; border-radius: 50%;
+}
+.comparison-list.strengths li::before { background: var(--success); }
+.comparison-list.concerns li::before { background: var(--warning); }
+
+/* ======================== AI Analysis Progress ======================== */
+.ai-progress {
+    padding: 32px 24px; text-align: center;
+}
+.ai-progress-spinner {
+    margin-bottom: 16px;
+}
+.ai-progress-spinner .spinner {
+    width: 40px; height: 40px; border: 3px solid var(--gray-200);
+    border-top-color: var(--primary); border-radius: 50%;
+    animation: ai-spin 0.8s linear infinite;
+    margin: 0 auto;
+}
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+.ai-progress-bar {
+    height: 6px; background: var(--gray-200); border-radius: 3px;
+    overflow: hidden; margin: 0 auto; max-width: 300px;
+}
+.ai-progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--primary), #818cf8);
+    border-radius: 3px; width: 0%; transition: width 0.8s ease;
+}
+.ai-progress-phase {
+    margin-top: 12px; font-size: 13px; color: var(--gray-500);
+}
+.ai-progress-percent {
+    font-size: 24px; font-weight: 700; color: var(--gray-700);
+    margin-bottom: 12px;
+}
+
+/* Inline progress for table rows */
+.ai-inline-progress {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 12px;
+    color: var(--gray-500); margin-left: 8px;
+}
+.ai-inline-progress .mini-bar {
+    width: 60px; height: 4px; background: var(--gray-200); border-radius: 2px;
+    overflow: hidden;
+}
+.ai-inline-progress .mini-fill {
+    height: 100%; background: var(--primary); border-radius: 2px;
+    transition: width 0.6s ease;
+}
+.ai-inline-progress .mini-text {
+    white-space: nowrap;
+}
+
+/* Button analyzing state */
+.ai-analyze-btn.analyzing {
+    opacity: 0.7; cursor: wait; pointer-events: none;
+}
+.ai-analyze-btn.analyzing .ai-btn-text::before {
+    content: ''; display: inline-block; width: 14px; height: 14px;
+    border: 2px solid currentColor; border-top-color: transparent;
+    border-radius: 50%; animation: ai-spin 0.8s linear infinite;
+    margin-right: 6px; vertical-align: middle;
+}
+
+/* Success flash animation on completion */
+.ai-complete-flash {
+    animation: aiFlashGreen 1s ease;
+}
+@keyframes aiFlashGreen {
+    0% { background-color: rgba(16,185,129,0.12); }
+    100% { background-color: transparent; }
+}
+
 @media (max-width: 768px) {
     .scoring-accuracy-grid { grid-template-columns: 1fr; }
     .scoring-rule-row { flex-direction: column; align-items: stretch; gap: 8px; }
     .scoring-rule-slider { width: 100%; }
     .weight-slider { flex: 1; }
+    .comparison-grid { grid-template-columns: 1fr !important; }
+    .comparison-column { border-right: none; border-bottom: 1px solid var(--gray-200); }
+    .ai-progress-bar { max-width: 100%; }
 }

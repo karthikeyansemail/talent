@@ -46,7 +46,7 @@
         </span>
     </div>
     <div class="card-body">
-        <form method="POST" action="{{ route('candidates.store') }}">
+        <form method="POST" action="{{ route('candidates.store') }}" id="candidateForm">
             @csrf
             <div class="form-row">
                 <div class="form-group"><label>First Name *</label><input type="text" name="first_name" class="form-control" value="{{ old('first_name') }}" required></div>
@@ -67,6 +67,10 @@
                         <option value="upload">Upload</option><option value="referral">Referral</option><option value="direct">Direct</option>
                     </select>
                 </div>
+            </div>
+            <div class="form-group">
+                <label>Skills</label>
+                <input type="text" name="skills" class="form-control tag-input" value="{{ old('skills') }}" placeholder="Type a skill and press Enter">
             </div>
             <div class="form-group"><label>Notes</label><textarea name="notes" class="form-control" rows="3">{{ old('notes') }}</textarea></div>
             <div class="flex gap-10">

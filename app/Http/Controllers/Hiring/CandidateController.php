@@ -19,7 +19,7 @@ class CandidateController extends Controller
     public function index(Request $request)
     {
         $orgId = Auth::user()->organization_id;
-        $query = Candidate::where('organization_id', $orgId)->with('resumes');
+        $query = Candidate::where('organization_id', $orgId)->with(['applications.jobPosting']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -30,8 +30,48 @@ class CandidateController extends Controller
             });
         }
 
-        $candidates = $query->latest()->paginate(15);
-        return view('candidates.index', compact('candidates'));
+        // Filter by job posting
+        if ($request->filled('job_id')) {
+            $query->whereHas('applications', function ($q) use ($request) {
+                $q->where('job_posting_id', $request->job_id);
+            });
+        }
+
+        // Filter by experience range
+        if ($request->filled('experience')) {
+            $range = explode('-', $request->experience);
+            if (count($range) === 2) {
+                $query->whereBetween('experience_years', [(float) $range[0], (float) $range[1]]);
+            }
+        }
+
+        // Filter by current title
+        if ($request->filled('title')) {
+            $query->where('current_title', $request->title);
+        }
+
+        // Filter by skill
+        if ($request->filled('skill')) {
+            $skill = $request->skill;
+            $query->whereNotNull('skills')->where('skills', 'like', "%\"{$skill}\"%");
+        }
+
+        $sortable = ['first_name', 'email', 'current_title', 'experience_years', 'source', 'created_at'];
+        $sort = in_array($request->sort, $sortable) ? $request->sort : 'created_at';
+        $direction = $request->direction === 'asc' ? 'asc' : 'desc';
+        $query->orderBy($sort, $direction);
+
+        $candidates = $query->paginate(15);
+
+        // Data for filter dropdowns
+        $jobs = JobPosting::where('organization_id', $orgId)->orderBy('title')->get(['id', 'title']);
+        $titles = Candidate::where('organization_id', $orgId)
+            ->whereNotNull('current_title')->where('current_title', '!=', '')
+            ->distinct()->orderBy('current_title')->pluck('current_title');
+        $allSkills = Candidate::where('organization_id', $orgId)
+            ->whereNotNull('skills')->pluck('skills')->flatten()->unique()->sort()->values();
+
+        return view('candidates.index', compact('candidates', 'sort', 'direction', 'jobs', 'titles', 'allSkills'));
     }
 
     public function create()
@@ -49,11 +89,15 @@ class CandidateController extends Controller
             'current_company' => 'nullable|string|max:255',
             'current_title' => 'nullable|string|max:255',
             'experience_years' => 'nullable|numeric|min:0|max:50',
+            'skills' => 'nullable|string',
             'source' => 'required|in:upload,referral,direct',
             'notes' => 'nullable|string',
         ]);
 
         $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['skills'] = $request->skills
+            ? array_map('trim', explode(',', $request->skills))
+            : [];
         $candidate = Candidate::create($validated);
 
         // If a resume was uploaded via AI auto-fill, save it as a Resume record
@@ -112,9 +156,14 @@ class CandidateController extends Controller
             'current_company' => 'nullable|string|max:255',
             'current_title' => 'nullable|string|max:255',
             'experience_years' => 'nullable|numeric|min:0|max:50',
+            'skills' => 'nullable|string',
             'source' => 'required|in:upload,referral,direct',
             'notes' => 'nullable|string',
         ]);
+
+        $validated['skills'] = $request->skills
+            ? array_map('trim', explode(',', $request->skills))
+            : [];
 
         $candidate->update($validated);
         return redirect()->route('candidates.show', $candidate)->with('success', 'Candidate updated.');
@@ -241,7 +290,7 @@ class CandidateController extends Controller
             // Build candidate data from parsed fields (with fallbacks)
             $firstName = $parsed['first_name'] ?? $this->nameFromFileName($fileName, 'first');
             $lastName = $parsed['last_name'] ?? $this->nameFromFileName($fileName, 'last');
-            $email = $parsed['email'] ?? null;
+            $email = $parsed['email'] ?? DocumentTextExtractor::extractEmail($text);
 
             // Skip if duplicate email exists for this org
             if ($email && Candidate::where('organization_id', $orgId)->where('email', $email)->exists()) {
@@ -249,17 +298,12 @@ class CandidateController extends Controller
                 continue;
             }
 
-            // Build notes from AI summary + skills
-            $notes = '';
+            // Build notes from AI summary
             $notesParts = [];
             if (!empty($parsed['summary'])) $notesParts[] = $parsed['summary'];
-            if (!empty($parsed['skills']) && is_array($parsed['skills'])) {
-                $notesParts[] = 'Skills: ' . implode(', ', $parsed['skills']);
-            }
             if (empty($parsed['first_name'])) {
                 $notesParts[] = 'Note: AI parsing could not extract candidate details. Please review and update manually.';
             }
-            if ($notesParts) $notes = implode("\n\n", $notesParts);
 
             $candidate = Candidate::create([
                 'organization_id' => $orgId,
@@ -270,8 +314,9 @@ class CandidateController extends Controller
                 'current_company' => $parsed['current_company'] ?? null,
                 'current_title' => $parsed['current_title'] ?? null,
                 'experience_years' => $parsed['experience_years'] ?? null,
+                'skills' => !empty($parsed['skills']) && is_array($parsed['skills']) ? $parsed['skills'] : [],
                 'source' => 'upload',
-                'notes' => $notes ?: null,
+                'notes' => $notesParts ? implode("\n\n", $notesParts) : null,
             ]);
 
             // Store resume file

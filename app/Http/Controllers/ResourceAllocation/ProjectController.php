@@ -109,7 +109,41 @@ class ProjectController extends Controller
     {
         $this->authorizeOrg($project);
         MatchProjectResourcesJob::dispatch($project);
+
+        if (request()->expectsJson()) {
+            return response()->json([
+                'status' => 'queued',
+                'project_id' => $project->id,
+            ]);
+        }
+
         return back()->with('success', 'Resource matching queued. Results will appear shortly.');
+    }
+
+    public function matchStatus(Project $project)
+    {
+        $this->authorizeOrg($project);
+
+        $since = request('since');
+        $project->load('resourceMatches.employee.department');
+        $matches = $project->resourceMatches->sortByDesc('match_score');
+
+        $hasNewMatches = $matches->isNotEmpty() && $since &&
+                         $matches->first()->updated_at->gt($since);
+
+        if ($hasNewMatches) {
+            $html = view('projects._resource-matches-table', [
+                'project' => $project,
+            ])->render();
+
+            return response()->json([
+                'status' => 'completed',
+                'match_count' => $matches->count(),
+                'html' => $html,
+            ]);
+        }
+
+        return response()->json(['status' => 'processing']);
     }
 
     public function uploadSprintSheets(Request $request, Project $project)

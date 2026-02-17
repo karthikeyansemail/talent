@@ -8,9 +8,12 @@ class JobPosting extends Model
 {
     protected $fillable = [
         'organization_id', 'department_id', 'title', 'description', 'requirements',
+        'key_responsibilities', 'expectations',
         'min_experience', 'max_experience', 'required_skills', 'nice_to_have_skills',
+        'skill_experience_details', 'notes',
         'employment_type', 'location', 'salary_min', 'salary_max', 'status',
         'created_by', 'closed_at',
+        'jd_file_path', 'jd_file_name', 'jd_file_type', 'jd_extracted_text',
     ];
 
     protected function casts(): array
