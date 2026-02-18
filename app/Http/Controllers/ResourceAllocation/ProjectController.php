@@ -15,7 +15,7 @@ class ProjectController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $query = Project::where('organization_id', $orgId)->withCount('resourceMatches');
 
         if ($request->filled('status')) {
@@ -45,7 +45,7 @@ class ProjectController extends Controller
             'status' => 'required|in:planning,active,completed,on_hold',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         $validated['created_by'] = Auth::id();
         $validated['required_skills'] = $request->required_skills
             ? array_map('trim', explode(',', $request->required_skills))
@@ -266,7 +266,7 @@ class ProjectController extends Controller
 
     private function authorizeOrg(Project $project): void
     {
-        if ($project->organization_id !== Auth::user()->organization_id) {
+        if ($project->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
     }

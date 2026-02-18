@@ -10,7 +10,7 @@ class CheckPremium
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $org = $request->user()?->organization;
+        $org = $request->user()?->currentOrganization();
 
         if (!$org || !$org->is_premium) {
             if ($request->expectsJson()) {

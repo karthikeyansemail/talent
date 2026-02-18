@@ -56,6 +56,64 @@
     </div>
 </div>
 
+{{-- Organization Color Themes --}}
+<div class="card" style="margin-bottom:24px">
+    <div class="card-header">
+        <span class="card-header-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20 4 4 0 0 1 0-8 4 4 0 0 0 0-8"/><circle cx="12" cy="12" r="2"/></svg>
+            Organization Color Themes
+        </span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted" style="margin-bottom:16px">Assign a color theme to each organization. Themes change the sidebar, buttons, and accent colors to match the organization's brand.</p>
+        @foreach($organizations as $org)
+        @php
+            $currentTheme = ($org->settings ?? [])['theme'] ?? 'indigo_night';
+        @endphp
+        <div class="theme-org-row" style="margin-bottom:24px;padding:16px;background:var(--gray-50);border-radius:var(--radius-lg);border:1px solid var(--gray-200)">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div>
+                    <strong style="font-size:14px">{{ $org->name }}</strong>
+                    <span class="badge badge-gray" style="margin-left:8px;font-size:11px">{{ $palettes[$currentTheme]['name'] }}</span>
+                </div>
+            </div>
+            <div class="theme-grid">
+                @foreach($palettes as $key => $palette)
+                <form method="POST" action="{{ route('settings.platformBranding.updateOrgTheme', $org) }}" style="margin:0">
+                    @csrf @method('PUT')
+                    <input type="hidden" name="theme" value="{{ $key }}">
+                    <button type="submit" class="theme-card {{ $currentTheme === $key ? 'theme-card-active' : '' }}" title="{{ $palette['name'] }}">
+                        <div class="theme-preview">
+                            <div class="theme-sidebar-swatch" style="background:{{ $palette['colors']['--sidebar-bg'] }}">
+                                <div class="theme-sidebar-lines">
+                                    <div class="theme-swatch-dot" style="background:{{ $palette['colors']['--sidebar-active-text'] }}"></div>
+                                    <div class="theme-swatch-line" style="background:{{ $palette['colors']['--sidebar-text'] }}"></div>
+                                    <div class="theme-swatch-line" style="background:{{ $palette['colors']['--sidebar-text'] }};width:60%"></div>
+                                </div>
+                            </div>
+                            <div class="theme-main-area">
+                                <div class="theme-primary-bar" style="background:{{ $palette['colors']['--primary'] }}"></div>
+                                <div class="theme-content-lines">
+                                    <div class="theme-line"></div>
+                                    <div class="theme-line short"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="theme-name">{{ $palette['name'] }}</div>
+                        @if($currentTheme === $key)
+                        <div class="theme-check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        @endif
+                    </button>
+                </form>
+                @endforeach
+            </div>
+        </div>
+        @endforeach
+    </div>
+</div>
+
 {{-- Per-Organization White-Label --}}
 <div class="card">
     <div class="card-header">

@@ -10,7 +10,7 @@ class OrganizationController extends Controller
 {
     public function edit()
     {
-        $organization = Auth::user()->organization;
+        $organization = Auth::user()->currentOrganization();
         return view('settings.organization', compact('organization'));
     }
 
@@ -21,7 +21,7 @@ class OrganizationController extends Controller
             'domain' => 'nullable|string|max:255',
         ]);
 
-        Auth::user()->organization->update($validated);
+        Auth::user()->currentOrganization()->update($validated);
         return back()->with('success', 'Organization updated.');
     }
 }

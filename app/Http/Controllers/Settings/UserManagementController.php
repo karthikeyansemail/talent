@@ -11,7 +11,7 @@ class UserManagementController extends Controller
 {
     public function index()
     {
-        $users = User::where('organization_id', Auth::user()->organization_id)->latest()->paginate(15);
+        $users = User::where('organization_id', Auth::user()->currentOrganizationId())->latest()->paginate(15);
         return view('settings.users.index', compact('users'));
     }
 
@@ -29,7 +29,7 @@ class UserManagementController extends Controller
             'role' => 'required|in:org_admin,hr_manager,hiring_manager,resource_manager,employee',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         $validated['is_active'] = true;
 
         User::create($validated);
@@ -38,7 +38,7 @@ class UserManagementController extends Controller
 
     public function edit(User $user)
     {
-        if ($user->organization_id !== Auth::user()->organization_id) {
+        if ($user->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
         return view('settings.users.edit', compact('user'));
@@ -46,7 +46,7 @@ class UserManagementController extends Controller
 
     public function update(Request $request, User $user)
     {
-        if ($user->organization_id !== Auth::user()->organization_id) {
+        if ($user->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -67,7 +67,7 @@ class UserManagementController extends Controller
 
     public function destroy(User $user)
     {
-        if ($user->organization_id !== Auth::user()->organization_id) {
+        if ($user->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
         if ($user->id === Auth::id()) {
@@ -79,7 +79,7 @@ class UserManagementController extends Controller
 
     public function toggleActive(User $user)
     {
-        if ($user->organization_id !== Auth::user()->organization_id) {
+        if ($user->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
         $user->update(['is_active' => !$user->is_active]);

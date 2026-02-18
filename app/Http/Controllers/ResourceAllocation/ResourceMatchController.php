@@ -11,7 +11,7 @@ class ResourceMatchController extends Controller
 {
     public function assign(Project $project, ProjectResourceMatch $match)
     {
-        if ($project->organization_id !== Auth::user()->organization_id) {
+        if ($project->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
         $match->update(['is_assigned' => true, 'assigned_at' => now()]);
@@ -20,7 +20,7 @@ class ResourceMatchController extends Controller
 
     public function unassign(Project $project, ProjectResourceMatch $match)
     {
-        if ($project->organization_id !== Auth::user()->organization_id) {
+        if ($project->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
         $match->update(['is_assigned' => false, 'assigned_at' => null]);

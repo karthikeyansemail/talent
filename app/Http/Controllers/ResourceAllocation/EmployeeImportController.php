@@ -74,7 +74,7 @@ class EmployeeImportController extends Controller
             return redirect()->route('employees.import')->with('error', 'No import data found. Please upload again.');
         }
 
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $imported = 0;
         $skipped = 0;
         $errors = [];
@@ -146,7 +146,7 @@ class EmployeeImportController extends Controller
 
     public function syncZohoPeople()
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $connection = ZohoPeopleConnection::where('organization_id', $orgId)
             ->where('is_active', true)
             ->first();

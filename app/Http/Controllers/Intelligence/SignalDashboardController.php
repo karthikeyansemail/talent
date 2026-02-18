@@ -15,7 +15,7 @@ class SignalDashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $period = $request->input('period', Carbon::now()->format('Y-\\WW'));
 
         // Get all employees with their latest signal snapshots
@@ -51,7 +51,7 @@ class SignalDashboardController extends Controller
 
     public function employeeSignals(Employee $employee, Request $request)
     {
-        if ($employee->organization_id !== Auth::user()->organization_id) {
+        if ($employee->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -81,7 +81,7 @@ class SignalDashboardController extends Controller
 
     public function computeSignals(Request $request)
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $period = $request->input('period', Carbon::now()->format('Y-\\WW'));
 
         $employees = Employee::where('organization_id', $orgId)

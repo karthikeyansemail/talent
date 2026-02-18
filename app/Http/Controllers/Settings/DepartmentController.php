@@ -11,7 +11,7 @@ class DepartmentController extends Controller
 {
     public function index()
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $departments = Department::where('organization_id', $orgId)
             ->withCount(['jobPostings', 'employees'])
             ->orderBy('name')
@@ -27,7 +27,7 @@ class DepartmentController extends Controller
             'description' => 'nullable|string|max:500',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         Department::create($validated);
 
         return back()->with('success', 'Department created.');
@@ -62,7 +62,7 @@ class DepartmentController extends Controller
 
     private function authorizeOrg(Department $department): void
     {
-        if ($department->organization_id !== Auth::user()->organization_id) {
+        if ($department->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
     }

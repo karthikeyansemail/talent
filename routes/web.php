@@ -27,6 +27,8 @@ use App\Http\Controllers\Settings\LlmConfigController;
 use App\Http\Controllers\Settings\ScoringRulesController;
 use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\PlatformBrandingController;
+use App\Http\Controllers\Settings\OrgSwitcherController;
+use App\Http\Controllers\Settings\OrganizationManagementController;
 
 // Auth
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -139,11 +141,25 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('integrations/zoho-people/{connection}', [IntegrationsController::class, 'destroyZohoPeople'])->name('integrations.zohoPeople.destroy');
     });
 
-    // Platform Branding (super_admin only)
+    // Super Admin org switcher
+    Route::middleware(['role:super_admin'])->group(function () {
+        Route::post('/switch-org', [OrgSwitcherController::class, 'switch'])->name('org.switch');
+        Route::post('/reset-org', [OrgSwitcherController::class, 'reset'])->name('org.reset');
+    });
+
+    // Platform Branding & Organization Management (super_admin only)
     Route::middleware(['role:super_admin'])->prefix('settings')->name('settings.')->group(function () {
         Route::get('platform-branding', [PlatformBrandingController::class, 'edit'])->name('platformBranding');
         Route::put('platform-branding', [PlatformBrandingController::class, 'update'])->name('platformBranding.update');
         Route::put('platform-branding/org/{organization}', [PlatformBrandingController::class, 'updateOrgBranding'])->name('platformBranding.updateOrg');
+        Route::put('platform-branding/org/{organization}/theme', [PlatformBrandingController::class, 'updateOrgTheme'])->name('platformBranding.updateOrgTheme');
+
+        // Organization Management
+        Route::get('organizations', [OrganizationManagementController::class, 'index'])->name('organizations.index');
+        Route::get('organizations/create', [OrganizationManagementController::class, 'create'])->name('organizations.create');
+        Route::post('organizations', [OrganizationManagementController::class, 'store'])->name('organizations.store');
+        Route::get('organizations/{organization}/edit', [OrganizationManagementController::class, 'edit'])->name('organizations.edit');
+        Route::put('organizations/{organization}', [OrganizationManagementController::class, 'update'])->name('organizations.update');
     });
 
     // Intelligence (premium feature, org_admin + resource_manager)

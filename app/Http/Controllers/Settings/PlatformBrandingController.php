@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Models\PlatformSetting;
+use App\Services\ThemeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -22,7 +23,9 @@ class PlatformBrandingController extends Controller
 
         $organizations = Organization::orderBy('name')->get();
 
-        return view('settings.platform-branding', compact('settings', 'organizations'));
+        $palettes = ThemeService::palettes();
+
+        return view('settings.platform-branding', compact('settings', 'organizations', 'palettes'));
     }
 
     public function update(Request $request)
@@ -93,5 +96,18 @@ class PlatformBrandingController extends Controller
         $organization->update(['settings' => $settings]);
 
         return back()->with('success', "Branding updated for {$organization->name}.");
+    }
+
+    public function updateOrgTheme(Request $request, Organization $organization)
+    {
+        $request->validate([
+            'theme' => 'required|string|in:' . implode(',', array_keys(ThemeService::palettes())),
+        ]);
+
+        $settings = $organization->settings ?? [];
+        $settings['theme'] = $request->theme;
+        $organization->update(['settings' => $settings]);
+
+        return back()->with('success', "Theme updated for {$organization->name}.");
     }
 }

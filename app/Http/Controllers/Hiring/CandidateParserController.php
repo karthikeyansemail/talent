@@ -39,7 +39,7 @@ class CandidateParserController extends Controller
             $client = new AiServiceClient();
             $result = $client->parseResumeProfile(
                 ['resume_text' => $text],
-                Auth::user()->organization_id
+                Auth::user()->currentOrganizationId()
             );
 
             if (isset($result['error'])) {

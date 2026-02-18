@@ -15,7 +15,7 @@ class SignalConfigController extends Controller
 {
     public function index()
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
 
         $signalSources = SignalSource::where('organization_id', $orgId)->get();
         $integrationConnections = IntegrationConnection::where('organization_id', $orgId)->get();
@@ -30,7 +30,7 @@ class SignalConfigController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         SignalSource::create($validated);
 
         return back()->with('success', 'Signal source added.');
@@ -38,7 +38,7 @@ class SignalConfigController extends Controller
 
     public function destroySource(SignalSource $source)
     {
-        if ($source->organization_id !== Auth::user()->organization_id) {
+        if ($source->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -56,7 +56,7 @@ class SignalConfigController extends Controller
         ]);
 
         IntegrationConnection::create([
-            'organization_id' => Auth::user()->organization_id,
+            'organization_id' => Auth::user()->currentOrganizationId(),
             'type' => $validated['type'],
             'name' => $validated['name'],
             'credentials' => array_filter([
@@ -70,7 +70,7 @@ class SignalConfigController extends Controller
 
     public function destroyIntegration(IntegrationConnection $connection)
     {
-        if ($connection->organization_id !== Auth::user()->organization_id) {
+        if ($connection->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -84,7 +84,7 @@ class SignalConfigController extends Controller
             'file' => 'required|file|mimes:csv,xlsx,txt|max:5120',
         ]);
 
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $file = $request->file('file');
         $ext = strtolower($file->getClientOriginalExtension());
         if ($ext === 'txt') {

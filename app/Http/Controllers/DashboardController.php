@@ -13,7 +13,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
 
         $stats = [
             'total_jobs' => JobPosting::where('organization_id', $orgId)->count(),

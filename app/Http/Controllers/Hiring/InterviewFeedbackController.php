@@ -12,7 +12,7 @@ class InterviewFeedbackController extends Controller
 {
     public function store(Request $request, JobApplication $application)
     {
-        if ($application->jobPosting->organization_id !== Auth::user()->organization_id) {
+        if ($application->jobPosting->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -34,7 +34,7 @@ class InterviewFeedbackController extends Controller
 
     public function destroy(InterviewFeedback $feedback)
     {
-        if ($feedback->application->jobPosting->organization_id !== Auth::user()->organization_id) {
+        if ($feedback->application->jobPosting->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
         $feedback->delete();

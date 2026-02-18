@@ -14,7 +14,7 @@ class ResumeController extends Controller
 {
     public function upload(Request $request, Candidate $candidate)
     {
-        if ($candidate->organization_id !== Auth::user()->organization_id) {
+        if ($candidate->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -46,7 +46,7 @@ class ResumeController extends Controller
 
     public function download(Candidate $candidate, Resume $resume)
     {
-        if ($candidate->organization_id !== Auth::user()->organization_id) {
+        if ($candidate->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 

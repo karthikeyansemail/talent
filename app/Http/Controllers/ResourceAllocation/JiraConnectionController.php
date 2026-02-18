@@ -12,7 +12,7 @@ class JiraConnectionController extends Controller
 {
     public function index()
     {
-        $connections = JiraConnection::where('organization_id', Auth::user()->organization_id)->latest()->get();
+        $connections = JiraConnection::where('organization_id', Auth::user()->currentOrganizationId())->latest()->get();
         return view('jira.index', compact('connections'));
     }
 
@@ -29,7 +29,7 @@ class JiraConnectionController extends Controller
             'jira_api_token' => 'required|string',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         $validated['is_active'] = true;
 
         JiraConnection::create($validated);
@@ -38,7 +38,7 @@ class JiraConnectionController extends Controller
 
     public function test(JiraConnection $jiraConnection)
     {
-        if ($jiraConnection->organization_id !== Auth::user()->organization_id) {
+        if ($jiraConnection->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -57,7 +57,7 @@ class JiraConnectionController extends Controller
 
     public function sync(JiraConnection $jiraConnection)
     {
-        if ($jiraConnection->organization_id !== Auth::user()->organization_id) {
+        if ($jiraConnection->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -67,7 +67,7 @@ class JiraConnectionController extends Controller
 
     public function destroy(JiraConnection $jiraConnection)
     {
-        if ($jiraConnection->organization_id !== Auth::user()->organization_id) {
+        if ($jiraConnection->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
         $jiraConnection->delete();

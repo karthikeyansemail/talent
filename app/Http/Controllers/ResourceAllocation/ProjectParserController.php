@@ -26,7 +26,7 @@ class ProjectParserController extends Controller
         }
 
         $aiClient = new AiServiceClient();
-        $orgId = auth()->user()->organization_id;
+        $orgId = auth()->user()->currentOrganizationId();
 
         $result = $aiClient->parseProjectRequirements(['document_text' => $text], $orgId);
 

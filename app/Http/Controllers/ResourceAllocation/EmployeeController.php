@@ -13,7 +13,7 @@ class EmployeeController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $query = Employee::where('organization_id', $orgId)->with('department');
 
         if ($request->filled('search')) {
@@ -35,7 +35,7 @@ class EmployeeController extends Controller
 
     public function create()
     {
-        $departments = Department::where('organization_id', Auth::user()->organization_id)->get();
+        $departments = Department::where('organization_id', Auth::user()->currentOrganizationId())->get();
         return view('employees.create', compact('departments'));
     }
 
@@ -49,7 +49,7 @@ class EmployeeController extends Controller
             'designation' => 'nullable|string|max:255',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         $employee = Employee::create($validated);
 
         return redirect()->route('employees.show', $employee)->with('success', 'Employee created.');
@@ -65,7 +65,7 @@ class EmployeeController extends Controller
     public function edit(Employee $employee)
     {
         $this->authorizeOrg($employee);
-        $departments = Department::where('organization_id', Auth::user()->organization_id)->get();
+        $departments = Department::where('organization_id', Auth::user()->currentOrganizationId())->get();
         return view('employees.edit', compact('employee', 'departments'));
     }
 
@@ -101,7 +101,7 @@ class EmployeeController extends Controller
 
     private function authorizeOrg(Employee $employee): void
     {
-        if ($employee->organization_id !== Auth::user()->organization_id) {
+        if ($employee->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
     }

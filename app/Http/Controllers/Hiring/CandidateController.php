@@ -18,7 +18,7 @@ class CandidateController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $query = Candidate::where('organization_id', $orgId)->with(['applications.jobPosting']);
 
         if ($request->filled('search')) {
@@ -94,7 +94,7 @@ class CandidateController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         $validated['skills'] = $request->skills
             ? array_map('trim', explode(',', $request->skills))
             : [];
@@ -129,7 +129,7 @@ class CandidateController extends Controller
 
         // Get open/draft job postings that this candidate hasn't applied to yet
         $appliedJobIds = $candidate->applications->pluck('job_posting_id')->toArray();
-        $availableJobs = JobPosting::where('organization_id', Auth::user()->organization_id)
+        $availableJobs = JobPosting::where('organization_id', Auth::user()->currentOrganizationId())
             ->whereIn('status', ['open', 'draft'])
             ->whereNotIn('id', $appliedJobIds)
             ->orderBy('title')
@@ -171,7 +171,7 @@ class CandidateController extends Controller
 
     public function search(Request $request): JsonResponse
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $q = $request->input('q', '');
 
         if (strlen($q) < 2) {
@@ -211,7 +211,7 @@ class CandidateController extends Controller
             'resume_id' => 'nullable|exists:resumes,id',
         ]);
 
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $resumeId = $request->resume_id ?: $candidate->resumes()->latest()->value('id');
         $applied = 0;
         $skipped = 0;
@@ -257,7 +257,7 @@ class CandidateController extends Controller
             'resumes.*' => 'file|mimes:pdf,docx|max:10240',
         ]);
 
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $extractor = new DocumentTextExtractor();
         $aiClient = new AiServiceClient();
 
@@ -367,7 +367,7 @@ class CandidateController extends Controller
 
     private function authorizeOrg(Candidate $candidate): void
     {
-        if ($candidate->organization_id !== Auth::user()->organization_id) {
+        if ($candidate->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
     }

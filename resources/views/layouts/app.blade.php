@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', $branding['app_name'] ?? 'Nalam Compass')</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
+    {!! $themeCss ?? '' !!}
 </head>
 <body>
     <div class="small-screen-blocker">
@@ -63,7 +64,7 @@
             </a>
             @endif
 
-            @if(in_array(auth()->user()->role, ['resource_manager','org_admin','super_admin']) && auth()->user()->organization?->is_premium)
+            @if(in_array(auth()->user()->role, ['resource_manager','org_admin','super_admin']) && auth()->user()->currentOrganization()?->is_premium)
             <div class="sidebar-heading">Intelligence</div>
             <a href="{{ route('intelligence.dashboard') }}" class="sidebar-link {{ request()->routeIs('intelligence.dashboard') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
@@ -102,6 +103,10 @@
                 Scoring Rules
             </a>
             @if(auth()->user()->isSuperAdmin())
+            <a href="{{ route('settings.organizations.index') }}" class="sidebar-link {{ request()->routeIs('settings.organizations.*') ? 'active' : '' }}">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                Organizations
+            </a>
             <a href="{{ route('settings.platformBranding') }}" class="sidebar-link {{ request()->routeIs('settings.platformBranding*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></span>
                 Platform Branding
@@ -132,7 +137,29 @@
                 <span class="page-title-bar">@yield('page-title')</span>
             </div>
             <div class="topbar-right">
-                <span class="badge badge-blue">{{ auth()->user()->organization?->name ?? 'System' }}</span>
+                @if(auth()->user()->isSuperAdmin())
+                <div class="org-switcher">
+                    <form action="{{ route('org.switch') }}" method="POST" style="display:inline-flex;align-items:center;gap:8px;margin:0">
+                        @csrf
+                        <select name="organization_id" onchange="this.form.submit()" class="org-switcher-select">
+                            @foreach(\App\Models\Organization::orderBy('name')->get() as $switchOrg)
+                            <option value="{{ $switchOrg->id }}" {{ auth()->user()->currentOrganizationId() == $switchOrg->id ? 'selected' : '' }}>{{ $switchOrg->name }}</option>
+                            @endforeach
+                        </select>
+                    </form>
+                    @if(session('viewing_organization_id'))
+                    <form action="{{ route('org.reset') }}" method="POST" style="display:inline;margin:0">
+                        @csrf
+                        <button type="submit" class="btn btn-sm" title="Return to your org" style="padding:4px 10px;font-size:12px;background:var(--gray-100);border:1px solid var(--gray-300);border-radius:6px;cursor:pointer;color:var(--gray-600)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-1"/></svg>
+                            Reset
+                        </button>
+                    </form>
+                    @endif
+                </div>
+                @else
+                <span class="badge badge-blue">{{ auth()->user()->currentOrganization()?->name ?? 'System' }}</span>
+                @endif
             </div>
         </div>
 

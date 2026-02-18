@@ -10,7 +10,7 @@ class LlmConfigController extends Controller
 {
     public function edit()
     {
-        $org = auth()->user()->organization;
+        $org = auth()->user()->currentOrganization();
         $config = $org->llm_config ?? [];
 
         // Mask the API key for display
@@ -36,7 +36,7 @@ class LlmConfigController extends Controller
             'azure_api_version' => 'required|string|max:30',
         ]);
 
-        $org = auth()->user()->organization;
+        $org = auth()->user()->currentOrganization();
 
         // If the user submitted the masked placeholder, keep the old key
         $apiKey = $request->azure_api_key;
@@ -62,7 +62,7 @@ class LlmConfigController extends Controller
 
     public function test(Request $request)
     {
-        $org = auth()->user()->organization;
+        $org = auth()->user()->currentOrganization();
         $config = $org->llm_config ?? [];
 
         if (empty($config['azure_endpoint']) || empty($config['azure_api_key'])) {

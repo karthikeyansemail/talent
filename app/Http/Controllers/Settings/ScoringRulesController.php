@@ -17,7 +17,7 @@ class ScoringRulesController extends Controller
 {
     public function index()
     {
-        $org = Auth::user()->organization;
+        $org = Auth::user()->currentOrganization();
         $engine = new ScoringEngine();
 
         // Lazy-seed defaults if no rules exist
@@ -56,7 +56,7 @@ class ScoringRulesController extends Controller
 
     public function update(Request $request)
     {
-        $org = Auth::user()->organization;
+        $org = Auth::user()->currentOrganization();
 
         $validated = $request->validate([
             'weights' => 'required|array',
@@ -95,7 +95,7 @@ class ScoringRulesController extends Controller
 
     public function toggleSignal(ScoringRule $rule)
     {
-        $org = Auth::user()->organization;
+        $org = Auth::user()->currentOrganization();
         if ($rule->organization_id !== $org->id) {
             abort(403);
         }
@@ -107,7 +107,7 @@ class ScoringRulesController extends Controller
 
     public function triggerOptimization()
     {
-        $org = Auth::user()->organization;
+        $org = Auth::user()->currentOrganization();
 
         // Check minimum sample size
         $sampleCount = JobApplication::whereHas('jobPosting', fn($q) => $q->where('organization_id', $org->id))
@@ -125,7 +125,7 @@ class ScoringRulesController extends Controller
 
     public function rollback(ScoringRuleVersion $version)
     {
-        $org = Auth::user()->organization;
+        $org = Auth::user()->currentOrganization();
         if ($version->organization_id !== $org->id) {
             abort(403);
         }

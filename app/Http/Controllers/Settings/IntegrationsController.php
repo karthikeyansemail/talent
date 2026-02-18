@@ -16,7 +16,7 @@ class IntegrationsController extends Controller
 {
     public function index()
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $jiraConnections = JiraConnection::where('organization_id', $orgId)->get();
         $zohoConnections = ZohoProjectsConnection::where('organization_id', $orgId)->get();
         $zohoPeopleConnections = ZohoPeopleConnection::where('organization_id', $orgId)->get();
@@ -33,7 +33,7 @@ class IntegrationsController extends Controller
             'auth_token' => 'required|string',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         ZohoProjectsConnection::create($validated);
 
         return redirect()->route('settings.integrations.index')
@@ -42,7 +42,7 @@ class IntegrationsController extends Controller
 
     public function testZohoProjects(ZohoProjectsConnection $connection)
     {
-        if ($connection->organization_id !== Auth::user()->organization_id) {
+        if ($connection->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -52,7 +52,7 @@ class IntegrationsController extends Controller
 
     public function destroyZohoProjects(ZohoProjectsConnection $connection)
     {
-        if ($connection->organization_id !== Auth::user()->organization_id) {
+        if ($connection->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -69,7 +69,7 @@ class IntegrationsController extends Controller
             'auth_token' => 'required|string',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         ZohoPeopleConnection::create($validated);
 
         return redirect()->route('settings.integrations.index')
@@ -78,7 +78,7 @@ class IntegrationsController extends Controller
 
     public function testZohoPeople(ZohoPeopleConnection $connection)
     {
-        if ($connection->organization_id !== Auth::user()->organization_id) {
+        if ($connection->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -87,7 +87,7 @@ class IntegrationsController extends Controller
 
     public function syncZohoPeople(ZohoPeopleConnection $connection)
     {
-        if ($connection->organization_id !== Auth::user()->organization_id) {
+        if ($connection->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -97,7 +97,7 @@ class IntegrationsController extends Controller
 
     public function destroyZohoPeople(ZohoPeopleConnection $connection)
     {
-        if ($connection->organization_id !== Auth::user()->organization_id) {
+        if ($connection->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -136,7 +136,7 @@ class IntegrationsController extends Controller
             return back()->with('error', 'No data rows found in the file.');
         }
 
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $imported = 0;
         $skipped = 0;
 

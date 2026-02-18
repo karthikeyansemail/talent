@@ -60,7 +60,7 @@ class ApplicationController extends Controller
     public function show(JobApplication $application)
     {
         $application->load(['jobPosting', 'candidate', 'resume', 'feedback.interviewer']);
-        if ($application->jobPosting->organization_id !== Auth::user()->organization_id) {
+        if ($application->jobPosting->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
         return view('applications.show', compact('application'));
@@ -68,7 +68,7 @@ class ApplicationController extends Controller
 
     public function updateStage(Request $request, JobApplication $application)
     {
-        if ($application->jobPosting->organization_id !== Auth::user()->organization_id) {
+        if ($application->jobPosting->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -101,7 +101,7 @@ class ApplicationController extends Controller
 
     public function triggerAiAnalysis(JobApplication $application)
     {
-        if ($application->jobPosting->organization_id !== Auth::user()->organization_id) {
+        if ($application->jobPosting->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -119,7 +119,7 @@ class ApplicationController extends Controller
 
     public function analysisStatus(JobApplication $application)
     {
-        if ($application->jobPosting->organization_id !== Auth::user()->organization_id) {
+        if ($application->jobPosting->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
 
@@ -154,7 +154,7 @@ class ApplicationController extends Controller
             'resumes.*' => 'file|mimes:pdf,docx|max:10240',
         ]);
 
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $extractor = new DocumentTextExtractor();
         $aiClient = new AiServiceClient();
 
@@ -275,7 +275,7 @@ class ApplicationController extends Controller
 
     private function authorizeOrg(JobPosting $job): void
     {
-        if ($job->organization_id !== Auth::user()->organization_id) {
+        if ($job->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
     }

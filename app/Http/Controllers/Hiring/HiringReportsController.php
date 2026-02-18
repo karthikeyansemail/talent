@@ -11,7 +11,7 @@ class HiringReportsController extends Controller
 {
     public function index()
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
 
         $pipelineStats = JobApplication::whereHas('jobPosting', fn($q) => $q->where('organization_id', $orgId))
             ->selectRaw('stage, count(*) as count')

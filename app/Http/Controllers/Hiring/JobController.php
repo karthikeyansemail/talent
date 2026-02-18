@@ -13,7 +13,7 @@ class JobController extends Controller
 {
     public function index(Request $request)
     {
-        $orgId = Auth::user()->organization_id;
+        $orgId = Auth::user()->currentOrganizationId();
         $query = JobPosting::where('organization_id', $orgId)->with('department')
             ->withCount('applications');
 
@@ -39,7 +39,7 @@ class JobController extends Controller
 
     public function create()
     {
-        $departments = Department::where('organization_id', Auth::user()->organization_id)->get();
+        $departments = Department::where('organization_id', Auth::user()->currentOrganizationId())->get();
         return view('jobs.create', compact('departments'));
     }
 
@@ -65,7 +65,7 @@ class JobController extends Controller
             'status' => 'required|in:draft,open',
         ]);
 
-        $validated['organization_id'] = Auth::user()->organization_id;
+        $validated['organization_id'] = Auth::user()->currentOrganizationId();
         $validated['created_by'] = Auth::id();
         $validated['required_skills'] = $request->required_skills
             ? array_map('trim', explode(',', $request->required_skills))
@@ -105,7 +105,7 @@ class JobController extends Controller
     public function edit(JobPosting $job)
     {
         $this->authorizeOrg($job);
-        $departments = Department::where('organization_id', Auth::user()->organization_id)->get();
+        $departments = Department::where('organization_id', Auth::user()->currentOrganizationId())->get();
         return view('jobs.edit', compact('job', 'departments'));
     }
 
@@ -195,7 +195,7 @@ class JobController extends Controller
 
     private function authorizeOrg(JobPosting $job): void
     {
-        if ($job->organization_id !== Auth::user()->organization_id) {
+        if ($job->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }
     }
