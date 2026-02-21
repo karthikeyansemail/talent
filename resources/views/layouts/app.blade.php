@@ -101,6 +101,10 @@
                 Hiring Scoring Rules
             </a>
             @if(auth()->user()->isSuperAdmin())
+            <a href="{{ route('settings.sso.index') }}" class="sidebar-link {{ request()->routeIs('settings.sso.*') ? 'active' : '' }}">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                SSO
+            </a>
             <a href="{{ route('settings.llm.edit') }}" class="sidebar-link {{ request()->routeIs('settings.llm.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4c0 2 2 3 2 6H6a2 2 0 0 0-2 2v2h16v-2a2 2 0 0 0-2-2h-4c0-3 2-4 2-6a4 4 0 0 0-4-4z"/><path d="M9 18v1a3 3 0 0 0 6 0v-1"/></svg></span>
                 LLM Configuration

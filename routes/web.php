@@ -29,10 +29,20 @@ use App\Http\Controllers\Settings\DepartmentController;
 use App\Http\Controllers\Settings\PlatformBrandingController;
 use App\Http\Controllers\Settings\OrgSwitcherController;
 use App\Http\Controllers\Settings\OrganizationManagementController;
+use App\Http\Controllers\Auth\SsoController;
+use App\Http\Controllers\Settings\SsoConfigController;
 
 // OAuth callbacks — outside auth middleware (no session user required during redirect)
 Route::get('/auth/slack/callback', [IntegrationsController::class, 'oauthSlackCallback'])->name('integrations.oauth.slack.callback');
 Route::get('/auth/teams/callback', [IntegrationsController::class, 'oauthTeamsCallback'])->name('integrations.oauth.teams.callback');
+
+// SSO — outside auth middleware (user has no session yet)
+Route::get('/auth/{provider}/redirect', [SsoController::class, 'redirect'])
+    ->where('provider', 'google|microsoft|okta')
+    ->name('sso.redirect');
+Route::get('/auth/{provider}/callback', [SsoController::class, 'callback'])
+    ->where('provider', 'google|microsoft|okta')
+    ->name('sso.callback');
 
 // Auth
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -204,6 +214,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('organizations', [OrganizationManagementController::class, 'store'])->name('organizations.store');
         Route::get('organizations/{organization}/edit', [OrganizationManagementController::class, 'edit'])->name('organizations.edit');
         Route::put('organizations/{organization}', [OrganizationManagementController::class, 'update'])->name('organizations.update');
+
+        // SSO Configuration
+        Route::get('sso', [SsoConfigController::class, 'index'])->name('sso.index');
+        Route::put('sso/{provider}', [SsoConfigController::class, 'update'])->name('sso.update');
     });
 
     // Intelligence (premium feature, resource_manager, management, org_admin, super_admin)

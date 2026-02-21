@@ -35,4 +35,25 @@ return [
         ],
     ],
 
+    // SSO provider placeholders — credentials are loaded from sso_settings DB table at runtime
+    'google' => [
+        'client_id'     => '',
+        'client_secret' => '',
+        'redirect'      => '',
+    ],
+
+    'microsoft' => [
+        'client_id'     => '',
+        'client_secret' => '',
+        'redirect'      => '',
+        'tenant'        => 'common',
+    ],
+
+    'okta' => [
+        'client_id'     => '',
+        'client_secret' => '',
+        'redirect'      => '',
+        'base_url'      => '',
+    ],
+
 ];
