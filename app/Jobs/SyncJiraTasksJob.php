@@ -33,12 +33,13 @@ class SyncJiraTasksJob implements ShouldQueue
         }
 
         try {
-            $jql = urlencode('assignee="' . $this->employee->email . '" ORDER BY updated DESC');
             $response = Http::withBasicAuth($connection->jira_email, $connection->jira_api_token)
-                ->get($connection->jira_base_url . '/rest/api/2/search', [
-                    'jql' => 'assignee="' . $this->employee->email . '" ORDER BY updated DESC',
+                ->withHeaders(['Accept' => 'application/json'])
+                ->timeout(60)
+                ->get($connection->jira_base_url . '/rest/api/3/search/jql', [
+                    'jql'        => 'assignee="' . $this->employee->email . '" ORDER BY updated DESC',
                     'maxResults' => 100,
-                    'fields' => 'summary,description,issuetype,status,priority,labels,components,customfield_10016,resolution,resolutiondate,created',
+                    'fields'     => 'summary,description,issuetype,status,priority,labels,components,customfield_10016,resolution,resolutiondate,created',
                 ]);
 
             if (!$response->successful()) {
@@ -54,7 +55,9 @@ class SyncJiraTasksJob implements ShouldQueue
                     [
                         'jira_connection_id' => $connection->id,
                         'summary' => $fields['summary'] ?? '',
-                        'description' => $fields['description'] ?? '',
+                        'description' => is_array($fields['description'] ?? null)
+                            ? $this->extractAdfText($fields['description'])
+                            : ($fields['description'] ?? ''),
                         'task_type' => $fields['issuetype']['name'] ?? null,
                         'status' => $fields['status']['name'] ?? null,
                         'priority' => $fields['priority']['name'] ?? null,
@@ -92,7 +95,22 @@ class SyncJiraTasksJob implements ShouldQueue
                 }
             }
         } catch (\Exception $e) {
-            // Log error silently
+            \Illuminate\Support\Facades\Log::error('SyncJiraTasksJob failed for employee ' . $this->employee->id . ': ' . $e->getMessage());
         }
+    }
+
+    /** Extract plain text from Atlassian Document Format (ADF) JSON */
+    private function extractAdfText(?array $adf): string
+    {
+        if (empty($adf['content'])) {
+            return '';
+        }
+        $text = '';
+        array_walk_recursive($adf['content'], function ($value, $key) use (&$text) {
+            if ($key === 'text' && is_string($value)) {
+                $text .= $value . ' ';
+            }
+        });
+        return trim($text);
     }
 }

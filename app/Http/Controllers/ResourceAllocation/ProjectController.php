@@ -5,11 +5,15 @@ namespace App\Http\Controllers\ResourceAllocation;
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchProjectResourcesJob;
 use App\Models\Project;
+use App\Models\ProjectDocument;
 use App\Models\ProjectSprintSheet;
+use App\Services\AiServiceClient;
+use App\Services\DocumentTextExtractor;
 use App\Services\SpreadsheetParser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProjectController extends Controller
 {
@@ -55,13 +59,17 @@ class ProjectController extends Controller
             : [];
 
         $project = Project::create($validated);
+
+        // Persist the charter document uploaded during AI auto-fill (if any)
+        $this->saveCharterFromTemp($request, $project);
+
         return redirect()->route('projects.show', $project)->with('success', 'Project created.');
     }
 
     public function show(Project $project)
     {
         $this->authorizeOrg($project);
-        $project->load(['creator', 'resourceMatches.employee.department', 'sprintSheets']);
+        $project->load(['creator', 'resourceMatches.employee.department', 'sprintSheets', 'documents']);
         return view('projects.show', compact('project'));
     }
 
@@ -220,6 +228,145 @@ class ProjectController extends Controller
         $sprintSheet->delete();
 
         return back()->with('success', 'Sprint spreadsheet removed.');
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Project Documents
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public function uploadDocument(Request $request, Project $project)
+    {
+        $this->authorizeOrg($project);
+
+        $request->validate([
+            'document' => 'required|file|mimes:pdf,docx|max:10240',
+            'label'    => 'nullable|string|max:255',
+        ]);
+
+        $file      = $request->file('document');
+        $extension = strtolower($file->getClientOriginalExtension());
+        $path      = $file->store('project-documents/' . $project->id, 'public');
+
+        $extractor = new DocumentTextExtractor();
+        $text      = $extractor->extract($file->getRealPath(), $extension);
+
+        ProjectDocument::create([
+            'project_id'        => $project->id,
+            'organization_id'   => $project->organization_id,
+            'document_type'     => 'supplemental',
+            'label'             => $request->input('label') ?: 'Supplemental Document',
+            'original_filename' => $file->getClientOriginalName(),
+            'file_path'         => $path,
+            'file_size'         => $file->getSize(),
+            'file_type'         => $extension,
+            'extracted_text'    => $text,
+            'uploaded_by'       => Auth::id(),
+        ]);
+
+        return back()->with('success', 'Document uploaded successfully.');
+    }
+
+    public function deleteDocument(Project $project, ProjectDocument $document)
+    {
+        $this->authorizeOrg($project);
+
+        if ($document->project_id !== $project->id) {
+            abort(403);
+        }
+
+        Storage::disk('public')->delete($document->file_path);
+        $document->delete();
+
+        return back()->with('success', 'Document removed.');
+    }
+
+    public function syncFromDocuments(Project $project)
+    {
+        $this->authorizeOrg($project);
+
+        $documents = $project->documents()->whereNotNull('extracted_text')->get();
+
+        if ($documents->isEmpty()) {
+            return back()->with('error', 'No documents to sync from. Upload a requirement document first.');
+        }
+
+        // Concatenate all document text, labelled by document
+        $combined = $documents->map(function ($doc) {
+            return "=== {$doc->label} ({$doc->original_filename}) ===\n{$doc->extracted_text}";
+        })->implode("\n\n");
+
+        $aiClient = new AiServiceClient();
+        $result   = $aiClient->parseProjectRequirements(['document_text' => $combined], $project->organization_id);
+
+        if (isset($result['error'])) {
+            return back()->with('error', 'AI service unavailable. Please try again.');
+        }
+
+        // Update project fields from re-parsed data
+        $updates = [];
+        if (!empty($result['description']))   { $updates['description']   = $result['description']; }
+        if (!empty($result['domain_context'])) { $updates['domain_context'] = $result['domain_context']; }
+        if (!empty($result['required_skills'])) {
+            $updates['required_skills'] = is_array($result['required_skills'])
+                ? $result['required_skills']
+                : array_map('trim', explode(',', $result['required_skills']));
+        }
+        if (!empty($result['required_technologies'])) {
+            $updates['required_technologies'] = is_array($result['required_technologies'])
+                ? $result['required_technologies']
+                : array_map('trim', explode(',', $result['required_technologies']));
+        }
+        if (!empty($result['complexity_level']) && in_array($result['complexity_level'], ['low', 'medium', 'high', 'critical'])) {
+            $updates['complexity_level'] = $result['complexity_level'];
+        }
+
+        if (!empty($updates)) {
+            $project->update($updates);
+        }
+
+        return back()->with('success', 'Project details synced from ' . $documents->count() . ' document(s).');
+    }
+
+    private function saveCharterFromTemp(Request $request, Project $project): void
+    {
+        $tempKey  = $request->input('charter_temp_key');
+        $origName = $request->input('charter_original_name');
+        $fileType = $request->input('charter_file_type', 'pdf');
+        $fileSize = (int) $request->input('charter_file_size', 0);
+
+        if (!$tempKey || !Str::isUuid($tempKey)) {
+            return;
+        }
+
+        $tempFilePath = 'project-documents/temp/' . $tempKey . '.' . $fileType;
+        $tempTextPath = 'project-documents/temp/' . $tempKey . '.txt';
+
+        if (!Storage::disk('public')->exists($tempFilePath)) {
+            return;
+        }
+
+        // Move to permanent storage
+        $permanentPath = 'project-documents/' . $project->id . '/' . $tempKey . '.' . $fileType;
+        Storage::disk('public')->move($tempFilePath, $permanentPath);
+
+        $extractedText = Storage::disk('public')->exists($tempTextPath)
+            ? Storage::disk('public')->get($tempTextPath)
+            : null;
+
+        Storage::disk('public')->delete($tempTextPath);
+
+        ProjectDocument::create([
+            'project_id'        => $project->id,
+            'organization_id'   => $project->organization_id,
+            'document_type'     => 'charter',
+            'label'             => 'Requirement Document / Project Charter',
+            'original_filename' => $origName ?? ('charter.' . $fileType),
+            'file_path'         => $permanentPath,
+            'file_size'         => $fileSize,
+            'file_type'         => $fileType,
+            'extracted_text'    => $extractedText,
+            'uploaded_by'       => Auth::id(),
+        ]);
     }
 
     private function buildSprintSummary(array $rows): array

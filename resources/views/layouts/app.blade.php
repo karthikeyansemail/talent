@@ -36,7 +36,7 @@
                 Dashboard
             </a>
 
-            @if(in_array(auth()->user()->role, ['hr_manager','hiring_manager','org_admin','super_admin']))
+            @if(in_array(auth()->user()->role, ['hr_manager','hiring_manager','management','org_admin','super_admin']))
             <div class="sidebar-heading">Hiring</div>
             <a href="{{ route('jobs.index') }}" class="sidebar-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"/></svg></span>
@@ -52,7 +52,7 @@
             </a>
             @endif
 
-            @if(in_array(auth()->user()->role, ['resource_manager','org_admin','super_admin']))
+            @if(in_array(auth()->user()->role, ['resource_manager','management','org_admin','super_admin']))
             <div class="sidebar-heading">Resources</div>
             <a href="{{ route('employees.index') }}" class="sidebar-link {{ request()->routeIs('employees.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></span>
@@ -64,7 +64,7 @@
             </a>
             @endif
 
-            @if(in_array(auth()->user()->role, ['resource_manager','org_admin','super_admin']) && auth()->user()->currentOrganization()?->is_premium)
+            @if(in_array(auth()->user()->role, ['resource_manager','management','org_admin','super_admin']) && auth()->user()->currentOrganization()?->is_premium)
             <div class="sidebar-heading">Intelligence</div>
             <a href="{{ route('intelligence.dashboard') }}" class="sidebar-link {{ request()->routeIs('intelligence.dashboard') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
@@ -76,8 +76,9 @@
             </a>
             @endif
 
-            @if(in_array(auth()->user()->role, ['org_admin','super_admin']))
+            @if(in_array(auth()->user()->role, ['hr_manager','org_admin','super_admin']))
             <div class="sidebar-heading">Settings</div>
+            @if(in_array(auth()->user()->role, ['org_admin','super_admin']))
             <a href="{{ route('settings.organization.edit') }}" class="sidebar-link {{ request()->routeIs('settings.organization.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                 Organization
@@ -94,15 +95,16 @@
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
                 Integrations
             </a>
+            @endif
+            <a href="{{ route('settings.scoring.index') }}" class="sidebar-link {{ request()->routeIs('settings.scoring.*') ? 'active' : '' }}">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+                Hiring Scoring Rules
+            </a>
+            @if(auth()->user()->isSuperAdmin())
             <a href="{{ route('settings.llm.edit') }}" class="sidebar-link {{ request()->routeIs('settings.llm.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4c0 2 2 3 2 6H6a2 2 0 0 0-2 2v2h16v-2a2 2 0 0 0-2-2h-4c0-3 2-4 2-6a4 4 0 0 0-4-4z"/><path d="M9 18v1a3 3 0 0 0 6 0v-1"/></svg></span>
                 LLM Configuration
             </a>
-            <a href="{{ route('settings.scoring.index') }}" class="sidebar-link {{ request()->routeIs('settings.scoring.*') ? 'active' : '' }}">
-                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
-                Scoring Rules
-            </a>
-            @if(auth()->user()->isSuperAdmin())
             <a href="{{ route('settings.organizations.index') }}" class="sidebar-link {{ request()->routeIs('settings.organizations.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
                 Organizations

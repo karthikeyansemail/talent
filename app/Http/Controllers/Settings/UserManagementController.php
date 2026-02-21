@@ -26,7 +26,7 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:8',
-            'role' => 'required|in:org_admin,hr_manager,hiring_manager,resource_manager,employee',
+            'role' => 'required|in:org_admin,hr_manager,hiring_manager,resource_manager,management,employee',
         ]);
 
         $validated['organization_id'] = Auth::user()->currentOrganizationId();
@@ -53,7 +53,7 @@ class UserManagementController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
-            'role' => 'required|in:org_admin,hr_manager,hiring_manager,resource_manager,employee',
+            'role' => 'required|in:org_admin,hr_manager,hiring_manager,resource_manager,management,employee',
         ]);
 
         if ($request->filled('password')) {

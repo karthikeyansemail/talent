@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -72,17 +74,17 @@ class EmployeeProfile(BaseModel):
 
     id: int = Field(..., description="Employee ID")
     name: str = Field(..., description="Employee name")
-    skills_from_resume: dict = Field(
-        default_factory=dict,
-        description="Skills extracted from resume analysis",
+    skills_from_resume: Any = Field(
+        default=None,
+        description="Skills extracted from resume analysis (list or dict)",
     )
-    skills_from_jira: dict = Field(
-        default_factory=dict,
-        description="Skills inferred from Jira activity",
+    skills_from_jira: Any = Field(
+        default=None,
+        description="Skills inferred from Jira activity (list or dict)",
     )
-    combined_skill_profile: dict = Field(
-        default_factory=dict,
-        description="Merged skill profile from all sources",
+    combined_skill_profile: Any = Field(
+        default=None,
+        description="Merged skill profile from all sources (list or dict)",
     )
 
 

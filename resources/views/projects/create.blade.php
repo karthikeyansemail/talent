@@ -9,8 +9,9 @@
     <div class="card-header">
         <span class="card-header-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4c0 2 2 3 2 6H6a2 2 0 0 0-2 2v2h16v-2a2 2 0 0 0-2-2h-4c0-3 2-4 2-6a4 4 0 0 0-4-4z"/><path d="M9 18v1a3 3 0 0 0 6 0v-1"/></svg>
-            AI Auto-fill from Requirement Document
+            AI Auto-fill from Requirement Document / Project Charter
         </span>
+        <span class="text-sm text-muted" style="margin-left:auto">Document will be saved and viewable after creation</span>
     </div>
     <div class="card-body">
         <div id="projectUploadArea" class="file-upload-area" data-url="{{ route('projects.parseDocument') }}">
@@ -18,7 +19,7 @@
             <div id="projectUploadContent">
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                 <p style="margin:8px 0 4px;font-weight:500;color:var(--gray-700)">Upload a requirement document</p>
-                <p style="margin:0;font-size:12.5px;color:var(--gray-500)">Drop a PDF or DOCX file here, or click to browse. AI will extract project details.</p>
+                <p style="margin:0;font-size:12.5px;color:var(--gray-500)">Drop a PDF or DOCX file here, or click to browse. AI will auto-fill the form and the document will be saved with the project.</p>
             </div>
             <div id="projectUploadLoading" class="hidden">
                 <div class="spinner"></div>
@@ -45,6 +46,11 @@
     <div class="card-body">
         <form method="POST" action="{{ route('projects.store') }}">
             @csrf
+            {{-- Hidden fields populated by the AI charter parser when a document is uploaded --}}
+            <input type="hidden" name="charter_temp_key"      id="charterTempKey">
+            <input type="hidden" name="charter_original_name" id="charterOriginalName">
+            <input type="hidden" name="charter_file_type"     id="charterFileType">
+            <input type="hidden" name="charter_file_size"     id="charterFileSize">
             <div class="form-group"><label>Project Name *</label><input type="text" name="name" class="form-control" value="{{ old('name') }}" required></div>
             <div class="form-group"><label>Description</label><textarea name="description" class="form-control" rows="3">{{ old('description') }}</textarea></div>
             <div class="form-group"><label>Required Skills</label>

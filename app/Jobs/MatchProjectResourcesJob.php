@@ -49,15 +49,15 @@ class MatchProjectResourcesJob implements ShouldQueue
                 'description' => $this->project->description ?? '',
                 'required_skills' => $this->project->required_skills ?? [],
                 'required_technologies' => $this->project->required_technologies ?? [],
-                'complexity_level' => $this->project->complexity_level,
+                'complexity_level' => $this->project->complexity_level ?? 'medium',
                 'domain_context' => $this->project->domain_context ?? '',
             ],
             'employees' => $employees->map(fn($e) => [
                 'id' => $e->id,
                 'name' => $e->full_name,
-                'skills_from_resume' => $e->skills_from_resume ?? [],
-                'skills_from_jira' => $e->skills_from_jira ?? [],
-                'combined_skill_profile' => $e->combined_skill_profile ?? [],
+                'skills_from_resume' => (object)($e->skills_from_resume ?? []),
+                'skills_from_jira' => (object)($e->skills_from_jira ?? []),
+                'combined_skill_profile' => (object)($e->combined_skill_profile ?? []),
             ])->toArray(),
         ];
 

@@ -26,4 +26,6 @@ class Project extends Model
     public function creator() { return $this->belongsTo(User::class, 'created_by'); }
     public function resourceMatches() { return $this->hasMany(ProjectResourceMatch::class); }
     public function sprintSheets() { return $this->hasMany(ProjectSprintSheet::class); }
+    public function documents() { return $this->hasMany(ProjectDocument::class)->orderBy('document_type')->orderBy('created_at'); }
+    public function charter() { return $this->hasOne(ProjectDocument::class)->where('document_type', 'charter'); }
 }

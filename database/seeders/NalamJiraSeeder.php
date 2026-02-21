@@ -1,0 +1,30 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\JiraConnection;
+use App\Models\Organization;
+use Illuminate\Database\Seeder;
+
+class NalamJiraSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $org = Organization::where('slug', 'nalam-systems')->firstOrFail();
+
+        // Remove any existing connection first
+        JiraConnection::where('organization_id', $org->id)->delete();
+
+        $conn = JiraConnection::create([
+            'organization_id' => $org->id,
+            'jira_base_url'   => 'https://nalamsystems.atlassian.net',
+            'jira_email'      => 'rahul.kumar@nalamsystems.work',
+            'jira_api_token'  => 'ATATT3xFfGF0Mj_lsdKT3sBuqeVXelwrhqxyTmBOJ-RagtDO1ePH7BiOM_jSPNhjVqH8aZ05O-fYojbF8lA8Otr3QZlD5L5v_XY5kizx5N8_inky6_ITiS8jBbcvQrgbrjx1iTYTcZVUunr-3zEoCSl4oPF_8BwTEirT1GWPbvPFwZ4GgCAxUMU=ACD85B75',
+            'is_active'       => true,
+        ]);
+
+        $this->command->info("Jira connection created (ID: {$conn->id})");
+        $this->command->info("URL: {$conn->jira_base_url}");
+        $this->command->info("Email: {$conn->jira_email}");
+    }
+}

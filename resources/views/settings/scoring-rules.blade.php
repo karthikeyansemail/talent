@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'Scoring Rules')
-@section('page-title', 'Scoring Rules')
+@section('title', 'Hiring Scoring Rules')
+@section('page-title', 'Hiring Scoring Rules')
 @section('content')
 <div class="page-header">
     <h1>Resume Scoring Rules</h1>

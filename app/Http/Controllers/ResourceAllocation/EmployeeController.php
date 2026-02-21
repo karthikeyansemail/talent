@@ -27,10 +27,28 @@ class EmployeeController extends Controller
         if ($request->filled('department_id')) {
             $query->where('department_id', $request->department_id);
         }
+        if ($request->filled('designation')) {
+            $query->where('designation', $request->designation);
+        }
+        if ($request->filled('skill')) {
+            $skill = $request->skill;
+            $query->where('skills_from_resume', 'like', "%\"{$skill}\"%");
+        }
 
         $employees = $query->latest()->paginate(15);
         $departments = Department::where('organization_id', $orgId)->get();
-        return view('employees.index', compact('employees', 'departments'));
+        $designations = Employee::where('organization_id', $orgId)
+            ->whereNotNull('designation')->where('designation', '!=', '')
+            ->distinct()->orderBy('designation')->pluck('designation');
+        $allSkills = Employee::where('organization_id', $orgId)
+            ->whereNotNull('skills_from_resume')
+            ->pluck('skills_from_resume')
+            ->filter()
+            ->flatten()
+            ->filter(fn($s) => is_string($s) && $s !== '')
+            ->unique()->sort()->values();
+
+        return view('employees.index', compact('employees', 'departments', 'designations', 'allSkills'));
     }
 
     public function create()

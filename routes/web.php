@@ -42,8 +42,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/', fn() => redirect('/dashboard'));
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Hiring (hr_manager, hiring_manager, org_admin, super_admin)
-    Route::middleware(['role:hr_manager,hiring_manager,org_admin,super_admin'])->group(function () {
+    // Hiring (hr_manager, hiring_manager, management, org_admin, super_admin)
+    Route::middleware(['role:hr_manager,hiring_manager,management,org_admin,super_admin'])->group(function () {
         // AI parsing routes (must be before resource routes to avoid conflict)
         Route::post('jobs/parse-document', [JobParserController::class, 'parse'])->name('jobs.parseDocument');
         Route::post('candidates/parse-resume', [CandidateParserController::class, 'parse'])->name('candidates.parseResume');
@@ -78,8 +78,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('hiring/reports', [HiringReportsController::class, 'index'])->name('hiring.reports');
     });
 
-    // Resource Allocation (resource_manager, org_admin, super_admin)
-    Route::middleware(['role:resource_manager,org_admin,super_admin'])->group(function () {
+    // Resource Allocation (resource_manager, management, org_admin, super_admin)
+    Route::middleware(['role:resource_manager,management,org_admin,super_admin'])->group(function () {
         // Employee import routes (must be before resource route)
         Route::get('employees/import', [EmployeeImportController::class, 'showImport'])->name('employees.import');
         Route::post('employees/import/upload', [EmployeeImportController::class, 'uploadSpreadsheet'])->name('employees.import.upload');
@@ -102,6 +102,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('projects/{project}/match-status', [ProjectController::class, 'matchStatus'])->name('projects.matchStatus');
         Route::post('projects/{project}/sprint-sheets', [ProjectController::class, 'uploadSprintSheets'])->name('projects.sprintSheets.upload');
         Route::delete('projects/{project}/sprint-sheets/{sprintSheet}', [ProjectController::class, 'deleteSprintSheet'])->name('projects.sprintSheets.destroy');
+        Route::post('projects/{project}/documents', [ProjectController::class, 'uploadDocument'])->name('projects.documents.upload');
+        Route::delete('projects/{project}/documents/{document}', [ProjectController::class, 'deleteDocument'])->name('projects.documents.destroy');
+        Route::post('projects/{project}/sync-from-documents', [ProjectController::class, 'syncFromDocuments'])->name('projects.syncFromDocuments');
         Route::post('projects/{project}/resources/{match}/assign', [ResourceMatchController::class, 'assign'])->name('resources.assign');
         Route::delete('projects/{project}/resources/{match}/unassign', [ResourceMatchController::class, 'unassign'])->name('resources.unassign');
     });
@@ -122,17 +125,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('integrations/zoho-projects', [IntegrationsController::class, 'storeZohoProjects'])->name('integrations.zohoProjects.store');
         Route::post('integrations/zoho-projects/{connection}/test', [IntegrationsController::class, 'testZohoProjects'])->name('integrations.zohoProjects.test');
         Route::delete('integrations/zoho-projects/{connection}', [IntegrationsController::class, 'destroyZohoProjects'])->name('integrations.zohoProjects.destroy');
-        // LLM Configuration
-        Route::get('llm', [LlmConfigController::class, 'edit'])->name('llm.edit');
-        Route::put('llm', [LlmConfigController::class, 'update'])->name('llm.update');
-        Route::post('llm/test', [LlmConfigController::class, 'test'])->name('llm.test');
-
-        // Scoring Rules
-        Route::get('scoring-rules', [ScoringRulesController::class, 'index'])->name('scoring.index');
-        Route::put('scoring-rules', [ScoringRulesController::class, 'update'])->name('scoring.update');
-        Route::post('scoring-rules/{rule}/toggle', [ScoringRulesController::class, 'toggleSignal'])->name('scoring.toggle');
-        Route::post('scoring-rules/optimize', [ScoringRulesController::class, 'triggerOptimization'])->name('scoring.optimize');
-        Route::post('scoring-rules/{version}/rollback', [ScoringRulesController::class, 'rollback'])->name('scoring.rollback');
 
         // Zoho People
         Route::post('integrations/zoho-people', [IntegrationsController::class, 'storeZohoPeople'])->name('integrations.zohoPeople.store');
@@ -141,14 +133,28 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('integrations/zoho-people/{connection}', [IntegrationsController::class, 'destroyZohoPeople'])->name('integrations.zohoPeople.destroy');
     });
 
+    // Hiring Scoring Rules (hr_manager, org_admin, super_admin)
+    Route::middleware(['role:hr_manager,org_admin,super_admin'])->prefix('settings')->name('settings.')->group(function () {
+        Route::get('scoring-rules', [ScoringRulesController::class, 'index'])->name('scoring.index');
+        Route::put('scoring-rules', [ScoringRulesController::class, 'update'])->name('scoring.update');
+        Route::post('scoring-rules/{rule}/toggle', [ScoringRulesController::class, 'toggleSignal'])->name('scoring.toggle');
+        Route::post('scoring-rules/optimize', [ScoringRulesController::class, 'triggerOptimization'])->name('scoring.optimize');
+        Route::post('scoring-rules/{version}/rollback', [ScoringRulesController::class, 'rollback'])->name('scoring.rollback');
+    });
+
     // Super Admin org switcher
     Route::middleware(['role:super_admin'])->group(function () {
         Route::post('/switch-org', [OrgSwitcherController::class, 'switch'])->name('org.switch');
         Route::post('/reset-org', [OrgSwitcherController::class, 'reset'])->name('org.reset');
     });
 
-    // Platform Branding & Organization Management (super_admin only)
+    // Platform Branding, Organization Management & LLM Config (super_admin only)
     Route::middleware(['role:super_admin'])->prefix('settings')->name('settings.')->group(function () {
+        // LLM Configuration
+        Route::get('llm', [LlmConfigController::class, 'edit'])->name('llm.edit');
+        Route::put('llm', [LlmConfigController::class, 'update'])->name('llm.update');
+        Route::post('llm/test', [LlmConfigController::class, 'test'])->name('llm.test');
+
         Route::get('platform-branding', [PlatformBrandingController::class, 'edit'])->name('platformBranding');
         Route::put('platform-branding', [PlatformBrandingController::class, 'update'])->name('platformBranding.update');
         Route::put('platform-branding/org/{organization}', [PlatformBrandingController::class, 'updateOrgBranding'])->name('platformBranding.updateOrg');
@@ -162,8 +168,8 @@ Route::middleware(['auth'])->group(function () {
         Route::put('organizations/{organization}', [OrganizationManagementController::class, 'update'])->name('organizations.update');
     });
 
-    // Intelligence (premium feature, org_admin + resource_manager)
-    Route::middleware(['role:resource_manager,org_admin,super_admin', 'premium'])
+    // Intelligence (premium feature, resource_manager, management, org_admin, super_admin)
+    Route::middleware(['role:resource_manager,management,org_admin,super_admin', 'premium'])
         ->prefix('intelligence')
         ->name('intelligence.')
         ->group(function () {

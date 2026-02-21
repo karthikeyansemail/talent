@@ -844,6 +844,14 @@ function fillProjectForm(data) {
     if (data.complexity_level) setSelectValue('[name="complexity_level"]', data.complexity_level);
     if (data.required_skills && data.required_skills.length) setTagInput('[name="required_skills"]', data.required_skills);
     if (data.required_technologies && data.required_technologies.length) setTagInput('[name="required_technologies"]', data.required_technologies);
+
+    // Persist the charter temp key so the file is saved when the form is submitted
+    if (data.charter_temp_key) {
+        setField('#charterTempKey',      data.charter_temp_key);
+        setField('#charterOriginalName', data.charter_original_name || '');
+        setField('#charterFileType',     data.charter_file_type     || 'pdf');
+        setField('#charterFileSize',     data.charter_file_size     || 0);
+    }
 }
 
 // ============================================================

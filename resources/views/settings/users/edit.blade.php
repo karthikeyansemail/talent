@@ -3,7 +3,7 @@
 @section('page-title', 'Edit User')
 @section('content')
 <div class="page-header"><h1>Edit: {{ $user->name }}</h1></div>
-<div class="card">
+<div class="card" style="overflow:visible">
     <div class="card-header">
         <span class="card-header-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -29,7 +29,7 @@
             <div class="form-group">
                 <label>Role *</label>
                 <select name="role" class="form-control" required>
-                    @foreach(['hr_manager'=>'HR Manager','hiring_manager'=>'Hiring Manager','resource_manager'=>'Resource Manager','employee'=>'Employee','org_admin'=>'Org Admin'] as $val=>$lbl)
+                    @foreach(['hr_manager'=>'HR Manager','hiring_manager'=>'Hiring Manager','resource_manager'=>'Resource Manager','management'=>'Management','employee'=>'Employee','org_admin'=>'Org Admin'] as $val=>$lbl)
                     <option value="{{ $val }}" {{ old('role',$user->role)===$val?'selected':'' }}>{{ $lbl }}</option>
                     @endforeach
                 </select>
