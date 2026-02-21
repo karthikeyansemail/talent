@@ -23,8 +23,6 @@
     </div>
     <button type="submit" class="btn btn-primary btn-lg w-full" style="margin-top:8px">Sign in</button>
 </form>
-<p class="mt-3 text-center text-sm text-muted">Don't have an account? <a href="{{ route('register') }}">Create one</a></p>
-
 @if(isset($ssoProviders) && $ssoProviders->isNotEmpty())
 <div style="margin-top:24px">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">

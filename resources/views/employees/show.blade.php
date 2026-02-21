@@ -193,147 +193,213 @@
 {{-- Tab: Signal Intelligence --}}
 <div id="tab-signals" class="tab-content">
 @php
-    // ── Unified tasks (all sources) ────────────────────────────────
-    $allTasks    = $employee->tasks;
+    // ── Raw task data ──────────────────────────────────────────────
+    $allTasks      = $employee->tasks;
     $tasksBySource = $allTasks->groupBy('source_type');
-    $totalTasks  = $allTasks->count();
-
-    // For backward-compat metric cards: aggregate all sources
-    $statusGroups = $allTasks->groupBy('status');
-    $doneTasks    = $statusGroups->get('Done', collect())->count();
-    $inProgTasks  = collect();
-    foreach(['In Progress','In Review','In Development','Review','Active'] as $_s) {
-        $inProgTasks = $inProgTasks->merge($statusGroups->get($_s, collect()));
-    }
-    $inProgCount  = $inProgTasks->count();
-    $completionRate = $totalTasks > 0 ? round($doneTasks / $totalTasks * 100) : null;
-
-    $priorityGroups = $allTasks->groupBy('priority');
-    $highCount   = $priorityGroups->get('High', collect())->count() + $priorityGroups->get('Highest', collect())->count() + $priorityGroups->get('Critical', collect())->count();
-    $medCount    = $priorityGroups->get('Medium', collect())->count();
-    $lowCount    = $priorityGroups->get('Low', collect())->count() + $priorityGroups->get('Lowest', collect())->count();
-
-    $typeGroups  = $allTasks->groupBy('task_type');
-    $bugCount    = $typeGroups->get('Bug', collect())->count();
-    $storyCount  = $typeGroups->get('Story', collect())->count() + $typeGroups->get('UserStory', collect())->count();
-    $taskCount2  = $typeGroups->get('Task', collect())->count();
-
-    $totalSP    = $allTasks->whereNotNull('story_points')->sum('story_points');
-    $doneSP     = $allTasks->where('status','Done')->whereNotNull('story_points')->sum('story_points');
-
-    // ── Source labels ──────────────────────────────────────────────
-    $sourceLabels = [
+    $totalTasks    = $allTasks->count();
+    $sourceLabels  = [
         'jira'            => 'Jira',
         'zoho_projects'   => 'Zoho Projects',
         'devops_boards'   => 'DevOps Boards',
         'github_projects' => 'GitHub Projects',
     ];
 
-    // ── Employee signals (communication + code) ───────────────────
-    $employeeSignals  = $employee->signals ?? collect();
-    $slackSignals     = $employeeSignals->where('source_type', 'slack');
-    $teamsSignals     = $employeeSignals->where('source_type', 'teams');
-    $githubSignals    = $employeeSignals->where('source_type', 'github');
-    $commSignals      = $slackSignals->merge($teamsSignals);
+    // Status groups (all tasks)
+    $statusGroups = $allTasks->groupBy('status');
+    $doneTasks    = $statusGroups->get('Done', collect())->count();
+    $inProgTasks  = collect();
+    foreach(['In Progress','In Review','In Development','Review','Active'] as $_s) {
+        $inProgTasks = $inProgTasks->merge($statusGroups->get($_s, collect()));
+    }
+    $inProgCount = $inProgTasks->count();
+    $priorityGroups = $allTasks->groupBy('priority');
+    $highCount = $priorityGroups->get('High', collect())->count()
+               + $priorityGroups->get('Highest', collect())->count()
+               + $priorityGroups->get('Critical', collect())->count();
+    $medCount  = $priorityGroups->get('Medium', collect())->count();
+    $lowCount  = $priorityGroups->get('Low', collect())->count()
+               + $priorityGroups->get('Lowest', collect())->count();
+    $typeGroups = $allTasks->groupBy('task_type');
+    $bugCount   = $typeGroups->get('Bug', collect())->count();
+    $storyCount = $typeGroups->get('Story', collect())->count() + $typeGroups->get('UserStory', collect())->count();
+    $taskCount2 = $typeGroups->get('Task', collect())->count();
+    $totalSP    = $allTasks->whereNotNull('story_points')->sum('story_points');
+    $doneSP     = $allTasks->where('status','Done')->whereNotNull('story_points')->sum('story_points');
 
-    // Helper: get latest signal value for a metric key
-    $sigVal = fn($collection, $key) =>
-        $collection->where('metric_key', $key)->sortByDesc('period')->first()?->metric_value;
+    // ── Signal data ────────────────────────────────────────────────
+    $employeeSignals = $employee->signals ?? collect();
+    $slackSignals    = $employeeSignals->where('source_type', 'slack');
+    $teamsSignals    = $employeeSignals->where('source_type', 'teams');
+    $githubSignals   = $employeeSignals->where('source_type', 'github');
+    $commSignals     = $slackSignals->merge($teamsSignals);
 
-    // ── Project matches ───────────────────────────────────────────
-    $matches     = $employee->resourceMatches;
-    $bestMatch   = $matches->sortByDesc('match_score')->first();
-    $avgScore    = $matches->count() ? round($matches->avg('match_score'), 1) : null;
+    // ── Insights from controller ───────────────────────────────────
+    $ti   = $signalInsights['task'] ?? [];         // task insights
+    $ci   = $signalInsights['comm'] ?? [];         // comm signal insights
+    $gi   = $signalInsights['code'] ?? [];         // code signal insights
+    $obs  = $signalInsights['observations'] ?? []; // factual observations
+
+    // Helper: format a signal insight card value + trend
+    $sigCard = fn(array $ins) => [
+        'value'     => $ins['value'] ?? null,
+        'prev'      => $ins['prev'] ?? null,
+        'trend'     => $ins['trend_pct'] ?? null,
+        'period'    => $ins['period'] ?? null,
+        'unit'      => $ins['unit'] ?? null,
+    ];
+
+    // Trend badge helper (returns HTML string)
+    $trendBadge = function(?int $trend) {
+        if ($trend === null) return '';
+        $absT = abs($trend);
+        $arrow = $trend > 0 ? '↑' : '↓';
+        $style = 'display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:12px;margin-left:6px;background:var(--gray-100);color:var(--gray-600)';
+        return "<span style=\"{$style}\">{$arrow} {$absT}% vs prev</span>";
+    };
+
+    // ── Snapshots / project matches ────────────────────────────────
+    $matches      = $employee->resourceMatches;
+    $bestMatch    = $matches->sortByDesc('match_score')->first();
+    $avgScore     = $matches->count() ? round($matches->avg('match_score'), 1) : null;
     $allStrengths = $matches->flatMap(fn($m) => $m->strength_areas ?? [])->unique()->values();
     $allGaps      = $matches->flatMap(fn($m) => $m->skill_gaps ?? [])->unique()->values();
     $assignedCount = $matches->where('is_assigned', true)->count();
+    $snapshots    = $employee->signalSnapshots->sortByDesc('period');
+    $latestSnap   = $snapshots->first();
+    $jiraSkills   = $employee->skills_from_jira['extracted_skills'] ?? [];
+    $topSkills    = collect($jiraSkills)->sortByDesc('confidence')->take(8)->values();
 
-    // ── Snapshots ─────────────────────────────────────────────────
-    $snapshots   = $employee->signalSnapshots->sortByDesc('period');
-    $latestSnap  = $snapshots->first();
-
-    // ── Skill intelligence ────────────────────────────────────────
-    $jiraSkills  = $employee->skills_from_jira['extracted_skills'] ?? [];
-    $topSkills   = collect($jiraSkills)->sortByDesc('confidence')->take(8)->values();
-
-    // ── Has any signals? ──────────────────────────────────────────
-    $hasAnything = $totalTasks > 0 || $matches->count() > 0 || $snapshots->count() > 0 || $commSignals->count() > 0 || $githubSignals->count() > 0;
+    $hasAnything  = $totalTasks > 0 || $matches->count() > 0 || $snapshots->count() > 0
+                 || $commSignals->count() > 0 || $githubSignals->count() > 0;
 @endphp
 
     {{-- Fact-only notice --}}
     <div style="display:flex;align-items:flex-start;gap:10px;background:#f8fafc;border:1px solid var(--gray-200);border-radius:8px;padding:12px 16px;margin:20px 0 24px">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span style="font-size:12.5px;color:var(--gray-600);line-height:1.6">All signals shown here are <strong>factual data only</strong> derived from connected sources — no judgements or scores are inferred. Signals are intended to provide context for resource allocation and appraisal discussions.</span>
+        <span style="font-size:12.5px;color:var(--gray-600);line-height:1.6">All signals are <strong>factual data</strong> from connected sources — no character judgements are made. Signals provide context for resource allocation and appraisal discussions. Humans decide meaning.</span>
     </div>
 
     @if(!$hasAnything)
-    <div class="card">
-        <div class="card-body">
-            <div class="empty-state">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                <p>No signals available yet</p>
-                <div class="empty-hint">Connect integrations (Jira, DevOps, GitHub, Slack, Teams) or run Project Matching to generate signals for this employee</div>
-            </div>
+    <div class="card"><div class="card-body">
+        <div class="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <p>No signals available yet</p>
+            <div class="empty-hint">Connect integrations (Jira, DevOps, GitHub, Slack, Teams) or run Project Matching to generate signals</div>
         </div>
-    </div>
+    </div></div>
     @else
 
-    {{-- ===== TASK EXECUTION SIGNALS ===== --}}
-    @if($totalTasks > 0)
-    <div style="display:flex;align-items:center;gap:8px;margin:0 0 14px">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        <span style="font-weight:600;font-size:14px;color:var(--gray-800)">Task Execution</span>
-        <span style="font-size:12px;color:var(--gray-400)">— {{ $totalTasks }} tasks from {{ $tasksBySource->count() }} {{ Str::plural('source', $tasksBySource->count()) }}</span>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
-        {{-- Total Tasks --}}
-        <div class="card" style="margin:0">
-            <div class="card-body" style="padding:16px">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Total Tasks</div>
-                <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $totalTasks }}</div>
-                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">tasks tracked in Jira</div>
+    {{-- ===== OBSERVED SIGNALS ===== --}}
+    @if(count($obs) > 0)
+    <div class="card" style="margin-bottom:24px;border-left:3px solid var(--primary)">
+        <div class="card-body" style="padding:16px 20px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <span style="font-weight:700;font-size:13.5px;color:var(--gray-800)">Observed Changes This Period</span>
+                <span style="font-size:11.5px;color:var(--gray-400);margin-left:4px">period-over-period factual observations</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                @foreach($obs as $observation)
+                <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:var(--gray-50);border-radius:7px">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span style="font-size:13px;color:var(--gray-700);line-height:1.5">{{ $observation }}</span>
+                </div>
+                @endforeach
             </div>
         </div>
-        {{-- Completion Rate --}}
+    </div>
+    @endif
+
+    {{-- ===== TASK EXECUTION & RELIABILITY ===== --}}
+    @if($totalTasks > 0)
+    @php
+        $taskSourceStr = $tasksBySource->keys()->map(fn($s) => $sourceLabels[$s] ?? ucfirst(str_replace('_',' ',$s)))->join(', ');
+        $taskTrend = ($ti['completion_rate'] !== null && $ti['completion_rate_prev'] !== null)
+            ? ($ti['completion_rate'] - $ti['completion_rate_prev']) : null;
+    @endphp
+    <div style="display:flex;align-items:center;gap:8px;margin:0 0 14px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span style="font-weight:600;font-size:14px;color:var(--gray-800)">Task Execution &amp; Reliability</span>
+        <span style="font-size:12px;color:var(--gray-400)">— from {{ $taskSourceStr }}</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px">
+        {{-- Completion Rate (this period vs last) --}}
         <div class="card" style="margin:0">
             <div class="card-body" style="padding:16px">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Completed</div>
-                @if($completionRate !== null)
-                <div style="font-size:28px;font-weight:700;color:{{ $completionRate >= 60 ? '#16a34a' : ($completionRate >= 30 ? '#ca8a04' : 'var(--gray-700)') }};line-height:1">{{ $completionRate }}%</div>
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Completion Rate</div>
+                @if($ti['completion_rate'] !== null)
+                <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px">
+                    <span style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $ti['completion_rate'] }}%</span>
+                    @if($taskTrend !== null)
+                    @php $arrow = $taskTrend > 0 ? '↑' : '↓'; $pts = abs((int)$taskTrend); @endphp
+                    <span style="font-size:11px;font-weight:600;padding:2px 6px;border-radius:10px;background:var(--gray-100);color:var(--gray-600)">{{ $arrow }} {{ $pts }}pts vs prev</span>
+                    @endif
+                </div>
                 <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">{{ $doneTasks }} done · {{ $inProgCount }} in progress</div>
+                @if($ti['completion_rate_prev'] !== null)<div style="font-size:11px;color:var(--gray-400);margin-top:2px">Previous period: {{ $ti['completion_rate_prev'] }}%</div>@endif
                 @else
-                <div style="font-size:28px;font-weight:700;color:var(--gray-400);line-height:1">—</div>
+                <div style="font-size:28px;font-weight:700;color:var(--gray-300);line-height:1">—</div>
                 <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">no completed tasks</div>
                 @endif
             </div>
         </div>
-        {{-- High Priority --}}
+        {{-- Spillover --}}
         <div class="card" style="margin:0">
             <div class="card-body" style="padding:16px">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">High Priority</div>
-                <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $highCount }}</div>
-                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">of {{ $totalTasks }} tasks are high/critical</div>
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Task Spillover</div>
+                @if($ti['prev_period'] !== null)
+                <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $ti['spillover'] ?? 0 }}</div>
+                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">tasks from {{ $ti['prev_period'] }} still open</div>
+                @else
+                <div style="font-size:28px;font-weight:700;color:var(--gray-300);line-height:1">—</div>
+                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">need 2+ periods of data</div>
+                @endif
             </div>
         </div>
-        {{-- Story Points --}}
+        {{-- Story Point Velocity --}}
         <div class="card" style="margin:0">
             <div class="card-body" style="padding:16px">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Story Points</div>
-                @if($totalSP > 0)
-                <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ number_format($totalSP, 0) }}</div>
-                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">total · {{ number_format($doneSP, 0) }} completed</div>
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">SP Velocity</div>
+                @if($ti['velocity_sp'] !== null)
+                @php
+                    $spTrend = ($ti['velocity_sp_prev'] !== null && $ti['velocity_sp_prev'] > 0)
+                        ? (int)round(($ti['velocity_sp'] - $ti['velocity_sp_prev']) / $ti['velocity_sp_prev'] * 100)
+                        : null;
+                @endphp
+                <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px">
+                    <span style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ number_format($ti['velocity_sp'], 0) }}</span>
+                    @if($spTrend !== null)
+                    @php $arrow = $spTrend > 0 ? '↑' : '↓'; @endphp
+                    <span style="font-size:11px;font-weight:600;padding:2px 6px;border-radius:10px;background:var(--gray-100);color:var(--gray-600)">{{ $arrow }} {{ abs($spTrend) }}%</span>
+                    @endif
+                </div>
+                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">SP completed this period</div>
+                @if($ti['velocity_sp_prev'] !== null)<div style="font-size:11px;color:var(--gray-400);margin-top:2px">Previous: {{ number_format($ti['velocity_sp_prev'], 0) }} SP</div>@endif
                 @else
-                <div style="font-size:28px;font-weight:700;color:var(--gray-400);line-height:1">—</div>
-                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">no story points set</div>
+                <div style="font-size:28px;font-weight:700;color:var(--gray-300);line-height:1">—</div>
+                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">no story points tracked</div>
+                @endif
+            </div>
+        </div>
+        {{-- High Priority Load --}}
+        <div class="card" style="margin:0">
+            <div class="card-body" style="padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">High Priority Load</div>
+                @if($ti['high_pct'] !== null)
+                <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $ti['high_pct'] }}%</div>
+                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">{{ $highCount }} of {{ $totalTasks }} tasks are high/critical</div>
+                @else
+                <div style="font-size:28px;font-weight:700;color:var(--gray-300);line-height:1">—</div>
                 @endif
             </div>
         </div>
     </div>
 
-    <div class="card" style="margin-bottom:24px">
+    {{-- Status + Priority + Type breakdown --}}
+    <div class="card" style="margin-bottom:14px">
         <div class="card-body" style="padding:16px 20px">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-                {{-- Status breakdown --}}
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
                 <div>
                     <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">Status Breakdown</div>
                     @foreach($statusGroups->sortByDesc(fn($g)=>$g->count()) as $status => $group)
@@ -349,130 +415,182 @@
                     </div>
                     @endforeach
                 </div>
-                {{-- Priority + Type --}}
                 <div>
                     <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">Priority Distribution</div>
-                    @foreach([['Critical / High', $highCount, '#dc2626'],['Medium', $medCount, '#ca8a04'],['Low / Lowest', $lowCount, '#6b7280']] as [$label, $count, $color])
-                    @if($count > 0)
-                    @php $pct = $totalTasks > 0 ? round($count/$totalTasks*100) : 0; @endphp
+                    @foreach([['Critical / High', $highCount, '#dc2626'],['Medium', $medCount, '#ca8a04'],['Low / Lowest', $lowCount, '#6b7280']] as [$lbl, $cnt, $col])
+                    @if($cnt > 0)
+                    @php $pct = $totalTasks > 0 ? round($cnt/$totalTasks*100) : 0; @endphp
                     <div style="margin-bottom:8px">
                         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-                            <span style="color:var(--gray-600)">{{ $label }}</span>
-                            <span style="font-weight:600;color:var(--gray-700)">{{ $count }} <span style="font-weight:400;color:var(--gray-400)">({{ $pct }}%)</span></span>
+                            <span style="color:var(--gray-600)">{{ $lbl }}</span>
+                            <span style="font-weight:600;color:var(--gray-700)">{{ $cnt }} <span style="font-weight:400;color:var(--gray-400)">({{ $pct }}%)</span></span>
                         </div>
                         <div style="height:5px;background:var(--gray-100);border-radius:3px;overflow:hidden">
-                            <div style="height:100%;width:{{ $pct }}%;background:{{ $color }};border-radius:3px"></div>
+                            <div style="height:100%;width:{{ $pct }}%;background:{{ $col }};border-radius:3px"></div>
                         </div>
                     </div>
                     @endif
                     @endforeach
+                </div>
+                <div>
+                    <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">Work Distribution</div>
                     @if($bugCount > 0 || $storyCount > 0 || $taskCount2 > 0)
-                    <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin:14px 0 8px">Task Types</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px">
-                        @if($storyCount > 0)<span style="background:#eff6ff;color:#1d4ed8;border-radius:5px;padding:3px 10px;font-size:11.5px;font-weight:600">{{ $storyCount }} Stories</span>@endif
-                        @if($taskCount2 > 0)<span style="background:#f0fdf4;color:#166534;border-radius:5px;padding:3px 10px;font-size:11.5px;font-weight:600">{{ $taskCount2 }} Tasks</span>@endif
-                        @if($bugCount > 0)<span style="background:#fef2f2;color:#b91c1c;border-radius:5px;padding:3px 10px;font-size:11.5px;font-weight:600">{{ $bugCount }} Bugs</span>@endif
+                    <div style="display:flex;flex-direction:column;gap:7px">
+                        @if($storyCount > 0)<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--gray-600)">Stories / User Stories</span><span style="font-weight:600;background:#eff6ff;color:#1d4ed8;padding:1px 8px;border-radius:4px">{{ $storyCount }}</span></div>@endif
+                        @if($taskCount2 > 0)<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--gray-600)">Tasks</span><span style="font-weight:600;background:#f0fdf4;color:#166534;padding:1px 8px;border-radius:4px">{{ $taskCount2 }}</span></div>@endif
+                        @if($bugCount > 0)<div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--gray-600)">Bugs</span><span style="font-weight:600;background:#fef2f2;color:#b91c1c;padding:1px 8px;border-radius:4px">{{ $bugCount }}</span></div>@endif
                     </div>
+                    @if($ti['unique_task_types'] > 2)
+                    <div style="margin-top:10px;padding:7px 10px;background:#fafafa;border-radius:6px;font-size:11.5px;color:var(--gray-500)">
+                        {{ $ti['unique_task_types'] }} distinct task types — spans multiple work areas
+                    </div>
+                    @endif
+                    @else
+                    <div style="font-size:12px;color:var(--gray-400)">No task type data</div>
                     @endif
                 </div>
             </div>
         </div>
     </div>
-    {{-- Per-source breakdown chips --}}
+
+    {{-- Per-source chips --}}
     @if($tasksBySource->count() > 1)
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px">
         @foreach($tasksBySource as $source => $srcTasks)
-        <div style="display:flex;align-items:center;gap:7px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 14px">
-            <div style="font-weight:600;font-size:12.5px;color:var(--gray-700)">{{ $sourceLabels[$source] ?? ucfirst(str_replace('_',' ',$source)) }}</div>
-            <div style="font-size:12px;color:var(--gray-400)">{{ $srcTasks->count() }} tasks</div>
-            @php $srcDone = $srcTasks->where('status','Done')->count(); $srcRate = $srcTasks->count() > 0 ? round($srcDone/$srcTasks->count()*100) : 0; @endphp
-            <div style="background:{{ $srcRate >= 60 ? '#dcfce7' : ($srcRate >= 30 ? '#fef9c3' : 'var(--gray-100)') }};color:{{ $srcRate >= 60 ? '#166534' : ($srcRate >= 30 ? '#854d0e' : 'var(--gray-500)') }};border-radius:4px;padding:2px 7px;font-size:11px;font-weight:600">{{ $srcRate }}% done</div>
+        @php $srcDone = $srcTasks->where('status','Done')->count(); $srcRate = $srcTasks->count() > 0 ? round($srcDone/$srcTasks->count()*100) : 0; @endphp
+        <div style="display:flex;align-items:center;gap:8px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 14px;font-size:12.5px">
+            <span style="font-weight:600;color:var(--gray-700)">{{ $sourceLabels[$source] ?? ucfirst(str_replace('_',' ',$source)) }}</span>
+            <span style="color:var(--gray-400)">{{ $srcTasks->count() }} tasks</span>
+            <span style="background:{{ $srcRate >= 60 ? '#dcfce7' : ($srcRate >= 30 ? '#fef9c3' : 'var(--gray-100)') }};color:{{ $srcRate >= 60 ? '#166534' : ($srcRate >= 30 ? '#854d0e' : 'var(--gray-500)') }};border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600">{{ $srcRate }}% done</span>
         </div>
         @endforeach
     </div>
+    @else
+    <div style="margin-bottom:24px"></div>
     @endif
     @endif
 
-    {{-- ===== COMMUNICATION SIGNALS ===== --}}
+    {{-- ===== COMMUNICATION & COLLABORATION ===== --}}
     @if($commSignals->count() > 0)
+    @php
+        $commSrc = ($slackSignals->count() > 0 ? 'Slack' : '') . ($slackSignals->count() > 0 && $teamsSignals->count() > 0 ? ' · ' : '') . ($teamsSignals->count() > 0 ? 'Teams' : '');
+        $commMetrics = [
+            ['metric_key' => 'messages_sent_count',        'label' => 'Messages Sent',        'hint' => 'total messages this period'],
+            ['metric_key' => 'active_days_count',          'label' => 'Active Days',           'hint' => 'days with communication activity'],
+            ['metric_key' => 'unique_collaborators_count', 'label' => 'Unique Collaborators', 'hint' => 'people interacted with this period'],
+            ['metric_key' => 'after_hours_message_pct',    'label' => 'After-Hours Messages', 'hint' => '% messages before 9am / after 6pm'],
+            ['metric_key' => 'calls_count',                'label' => 'Calls',                'hint' => 'call sessions this period'],
+            ['metric_key' => 'meetings_attended_count',    'label' => 'Meetings Attended',    'hint' => 'meetings this period'],
+            ['metric_key' => 'channel_messages_count',     'label' => 'Channel Messages',     'hint' => 'public channel messages'],
+        ];
+        $commDisplay = collect($commMetrics)->filter(fn($m) => ($ci[$m['metric_key']]['value'] ?? null) !== null)->values();
+    @endphp
     <div style="display:flex;align-items:center;gap:8px;margin:0 0 14px">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span style="font-weight:600;font-size:14px;color:var(--gray-800)">Communication Signals</span>
-        <span style="font-size:12px;color:var(--gray-400)">— from {{ $slackSignals->count() > 0 ? 'Slack' : '' }}{{ $slackSignals->count() > 0 && $teamsSignals->count() > 0 ? ' · ' : '' }}{{ $teamsSignals->count() > 0 ? 'Teams' : '' }}</span>
+        <span style="font-weight:600;font-size:14px;color:var(--gray-800)">Communication &amp; Collaboration</span>
+        <span style="font-size:12px;color:var(--gray-400)">— from {{ $commSrc }}</span>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
-        @foreach([
-            ['Messages Sent', $sigVal($commSignals,'messages_sent_count'), 'this week', null],
-            ['Active Days', $sigVal($commSignals,'active_days_count'), 'days with activity', null],
-            ['Unique Collaborators', $sigVal($commSignals,'unique_collaborators_count'), 'people this week', null],
-            ['After-Hours %', $sigVal($commSignals,'after_hours_message_pct'), 'messages after 6pm / before 9am', '%'],
-        ] as [$label, $val, $hint, $suffix])
+    @if($commDisplay->count() > 0)
+    <div style="display:grid;grid-template-columns:repeat({{ min(4, $commDisplay->count()) }},1fr);gap:14px;margin-bottom:24px">
+        @foreach($commDisplay->take(8) as $m)
+        @php
+            $ins = $ci[$m['metric_key']] ?? [];
+            $val = $ins['value'] ?? null;
+            $prv = $ins['prev'] ?? null;
+            $tnd = $ins['trend_pct'] ?? null;
+            $isSuffix = str_ends_with($m['metric_key'], '_pct') ? '%' : '';
+            $dispVal = ($val !== null && fmod((float)$val, 1.0) != 0.0 && !$isSuffix) ? round((float)$val, 1) : (int)$val;
+        @endphp
         <div class="card" style="margin:0">
             <div class="card-body" style="padding:16px">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">{{ $label }}</div>
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">{{ $m['label'] }}</div>
                 @if($val !== null)
-                <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ number_format((float)$val, 0) }}{{ $suffix }}</div>
+                <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px;margin-bottom:2px">
+                    <span style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $dispVal }}{{ $isSuffix }}</span>
+                    @if($tnd !== null)
+                    @php $arrow = $tnd > 0 ? '↑' : '↓'; @endphp
+                    <span style="font-size:11px;font-weight:600;padding:2px 6px;border-radius:10px;background:var(--gray-100);color:var(--gray-600)">{{ $arrow }} {{ abs($tnd) }}%</span>
+                    @endif
+                </div>
+                @if($prv !== null)
+                <div style="font-size:11px;color:var(--gray-400);margin-bottom:3px">Previously: {{ fmod((float)$prv,1.0) != 0.0 ? round((float)$prv,1) : (int)$prv }}{{ $isSuffix }}</div>
+                @endif
                 @else
                 <div style="font-size:28px;font-weight:700;color:var(--gray-300);line-height:1">—</div>
                 @endif
-                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">{{ $hint }}</div>
+                <div style="font-size:11.5px;color:var(--gray-400);margin-top:2px">{{ $m['hint'] }}</div>
             </div>
         </div>
         @endforeach
     </div>
     @endif
+    @endif
 
-    {{-- ===== CODE SIGNALS ===== --}}
+    {{-- ===== CODE CONTRIBUTION ===== --}}
     @if($githubSignals->count() > 0)
-    <div style="display:flex;align-items:center;gap:8px;margin:0 0 14px">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        <span style="font-weight:600;font-size:14px;color:var(--gray-800)">Code Signals</span>
-        <span style="font-size:12px;color:var(--gray-400)">— from GitHub</span>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px">
-        @foreach([
-            ['Commits', $sigVal($githubSignals,'commit_count'), 'this month'],
-            ['Active Days', $sigVal($githubSignals,'active_days_count'), 'days with commits'],
-            ['PR Reviews', $sigVal($githubSignals,'pr_reviews_count'), 'reviews this month'],
-            ['Avg Lines Added', $sigVal($githubSignals,'lines_added_avg'), 'per commit'],
-        ] as [$label, $val, $hint])
-        <div class="card" style="margin:0">
-            <div class="card-body" style="padding:16px">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">{{ $label }}</div>
-                @if($val !== null)
-                <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ number_format((float)$val, 0) }}</div>
-                @else
-                <div style="font-size:28px;font-weight:700;color:var(--gray-300);line-height:1">—</div>
-                @endif
-                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">{{ $hint }}</div>
-            </div>
-        </div>
-        @endforeach
-    </div>
     @php
+        $codeMetrics = [
+            ['metric_key' => 'commit_count',      'label' => 'Commits',              'hint' => 'commits this period'],
+            ['metric_key' => 'active_days_count',  'label' => 'Active Coding Days',  'hint' => 'days with commits'],
+            ['metric_key' => 'pr_reviews_count',   'label' => 'PR Reviews',          'hint' => 'pull request reviews'],
+            ['metric_key' => 'lines_added_avg',    'label' => 'Avg Lines Added',     'hint' => 'lines added per commit'],
+        ];
         $fileTypes = $githubSignals->where('metric_key','file_types_touched')->sortByDesc('period')->first()?->metadata ?? [];
         $codeAreas = $githubSignals->where('metric_key','code_areas_touched')->sortByDesc('period')->first()?->metadata ?? [];
     @endphp
+    <div style="display:flex;align-items:center;gap:8px;margin:0 0 14px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <span style="font-weight:600;font-size:14px;color:var(--gray-800)">Code Contribution</span>
+        <span style="font-size:12px;color:var(--gray-400)">— from GitHub</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px">
+        @foreach($codeMetrics as $m)
+        @php
+            $ins = $gi[$m['metric_key']] ?? [];
+            $val = $ins['value'] ?? null;
+            $prv = $ins['prev'] ?? null;
+            $tnd = $ins['trend_pct'] ?? null;
+        @endphp
+        <div class="card" style="margin:0">
+            <div class="card-body" style="padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">{{ $m['label'] }}</div>
+                @if($val !== null)
+                <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px;margin-bottom:2px">
+                    <span style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ number_format((float)$val, 0) }}</span>
+                    @if($tnd !== null)
+                    @php $arrow = $tnd > 0 ? '↑' : '↓'; @endphp
+                    <span style="font-size:11px;font-weight:600;padding:2px 6px;border-radius:10px;background:var(--gray-100);color:var(--gray-600)">{{ $arrow }} {{ abs($tnd) }}%</span>
+                    @endif
+                </div>
+                @if($prv !== null)<div style="font-size:11px;color:var(--gray-400);margin-bottom:3px">Previously: {{ number_format((float)$prv, 0) }}</div>@endif
+                @else
+                <div style="font-size:28px;font-weight:700;color:var(--gray-300);line-height:1">—</div>
+                @endif
+                <div style="font-size:11.5px;color:var(--gray-400);margin-top:2px">{{ $m['hint'] }}</div>
+            </div>
+        </div>
+        @endforeach
+    </div>
     @if(count($fileTypes) > 0 || count($codeAreas) > 0)
     <div class="card" style="margin-bottom:24px">
         <div class="card-body">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
                 @if(count($fileTypes) > 0)
                 <div>
-                    <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">File Types Touched</div>
+                    <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:8px">File Types Touched <span style="font-weight:400;color:var(--gray-400)">(breadth of contribution)</span></div>
                     <div style="display:flex;flex-wrap:wrap;gap:6px">
-                        @foreach(collect($fileTypes)->sortDesc()->take(10) as $ext => $count)
-                        <span style="background:var(--gray-100);color:var(--gray-700);border-radius:5px;padding:3px 10px;font-size:11.5px;font-weight:600">.{{ $ext }} ({{ $count }})</span>
+                        @foreach(collect($fileTypes)->sortDesc()->take(12) as $ext => $count)
+                        <span style="background:var(--gray-100);color:var(--gray-700);border-radius:5px;padding:3px 10px;font-size:11.5px;font-weight:600">.{{ $ext }} <span style="font-weight:400;color:var(--gray-400)">({{ $count }})</span></span>
                         @endforeach
                     </div>
                 </div>
                 @endif
                 @if(count($codeAreas) > 0)
                 <div>
-                    <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">Code Areas Touched</div>
+                    <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:8px">Code Areas Touched <span style="font-weight:400;color:var(--gray-400)">(focus areas)</span></div>
                     <div style="display:flex;flex-wrap:wrap;gap:6px">
-                        @foreach(collect($codeAreas)->sortDesc()->take(8) as $area => $count)
-                        <span style="background:#eff6ff;color:#1e40af;border-radius:5px;padding:3px 10px;font-size:11.5px;font-weight:600">{{ $area }} ({{ $count }})</span>
+                        @foreach(collect($codeAreas)->sortDesc()->take(10) as $area => $count)
+                        <span style="background:#eff6ff;color:#1e40af;border-radius:5px;padding:3px 10px;font-size:11.5px;font-weight:600">{{ $area }} <span style="font-weight:400;color:#3b82f6">({{ $count }})</span></span>
                         @endforeach
                     </div>
                 </div>
@@ -480,6 +598,8 @@
             </div>
         </div>
     </div>
+    @else
+    <div style="margin-bottom:24px"></div>
     @endif
     @endif
 
@@ -496,15 +616,13 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                 @foreach($topSkills as $skill)
                 @php $pct = round(($skill['confidence'] ?? 0) * 100); $depth = $skill['depth'] ?? ''; @endphp
-                <div style="display:flex;align-items:center;gap:10px">
-                    <div style="flex:1">
-                        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
-                            <span style="color:var(--gray-700);font-weight:500">{{ $skill['skill'] ?? '' }}</span>
-                            <span style="color:var(--gray-500);font-size:11.5px">{{ $depth ? ucfirst($depth) : $pct . '%' }}</span>
-                        </div>
-                        <div style="height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden">
-                            <div style="height:100%;width:{{ $pct }}%;background:{{ $pct >= 70 ? '#2563eb' : ($pct >= 40 ? '#0284c7' : '#93c5fd') }};border-radius:3px"></div>
-                        </div>
+                <div>
+                    <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
+                        <span style="color:var(--gray-700);font-weight:500">{{ $skill['skill'] ?? '' }}</span>
+                        <span style="color:var(--gray-500);font-size:11.5px">{{ $depth ? ucfirst($depth) : $pct . '%' }}</span>
+                    </div>
+                    <div style="height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;width:{{ $pct }}%;background:{{ $pct >= 70 ? '#2563eb' : ($pct >= 40 ? '#0284c7' : '#93c5fd') }};border-radius:3px"></div>
                     </div>
                 </div>
                 @endforeach
@@ -512,9 +630,7 @@
             @else
             <div style="display:flex;flex-wrap:wrap;gap:7px">
                 @foreach($employee->skills_from_resume as $skill)
-                @if(is_string($skill))
-                <span class="tag">{{ $skill }}</span>
-                @endif
+                @if(is_string($skill))<span class="tag">{{ $skill }}</span>@endif
                 @endforeach
             </div>
             <div style="font-size:12px;color:var(--gray-400);margin-top:10px">Sync Jira tasks to get confidence-scored skill analysis</div>
@@ -531,77 +647,61 @@
         <span style="font-size:12px;color:var(--gray-400)">— from {{ $matches->count() }} project evaluations</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
-        <div class="card" style="margin:0">
-            <div class="card-body" style="padding:16px">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Best Fit Score</div>
-                @php $bScore = $bestMatch?->match_score ?? 0; @endphp
-                <div style="font-size:28px;font-weight:700;color:{{ $bScore >= 70 ? '#16a34a' : ($bScore >= 40 ? '#ca8a04' : '#dc2626') }};line-height:1">{{ number_format($bScore, 1) }}</div>
-                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">{{ $bestMatch?->project?->name ?? '—' }}</div>
-            </div>
-        </div>
-        <div class="card" style="margin:0">
-            <div class="card-body" style="padding:16px">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Avg Fit Score</div>
-                <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $avgScore ?? '—' }}</div>
-                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">across {{ $matches->count() }} projects evaluated</div>
-            </div>
-        </div>
-        <div class="card" style="margin:0">
-            <div class="card-body" style="padding:16px">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Project Assignments</div>
-                <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $assignedCount }}</div>
-                <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">of {{ $matches->count() }} evaluated projects</div>
-            </div>
-        </div>
+        <div class="card" style="margin:0"><div class="card-body" style="padding:16px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Best Fit Score</div>
+            @php $bScore = $bestMatch?->match_score ?? 0; @endphp
+            <div style="font-size:28px;font-weight:700;color:{{ $bScore >= 70 ? '#16a34a' : ($bScore >= 40 ? '#ca8a04' : '#dc2626') }};line-height:1">{{ number_format($bScore, 1) }}</div>
+            <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">{{ $bestMatch?->project?->name ?? '—' }}</div>
+        </div></div>
+        <div class="card" style="margin:0"><div class="card-body" style="padding:16px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Avg Fit Score</div>
+            <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $avgScore ?? '—' }}</div>
+            <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">across {{ $matches->count() }} projects evaluated</div>
+        </div></div>
+        <div class="card" style="margin:0"><div class="card-body" style="padding:16px">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">Project Assignments</div>
+            <div style="font-size:28px;font-weight:700;color:var(--gray-800);line-height:1">{{ $assignedCount }}</div>
+            <div style="font-size:11.5px;color:var(--gray-400);margin-top:4px">of {{ $matches->count() }} evaluated projects</div>
+        </div></div>
     </div>
-
     @if($allStrengths->count() > 0 || $allGaps->count() > 0)
-    <div class="card" style="margin-bottom:24px">
-        <div class="card-body">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-                @if($allStrengths->count() > 0)
-                <div>
-                    <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">Consistent Strengths</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px">
-                        @foreach($allStrengths->take(12) as $s)
-                        <span style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:5px;padding:3px 10px;font-size:12px">{{ $s }}</span>
-                        @endforeach
-                    </div>
+    <div class="card" style="margin-bottom:24px"><div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+            @if($allStrengths->count() > 0)
+            <div>
+                <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">Consistent Strengths</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    @foreach($allStrengths->take(12) as $s)
+                    <span style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;border-radius:5px;padding:3px 10px;font-size:12px">{{ $s }}</span>
+                    @endforeach
                 </div>
-                @endif
-                @if($allGaps->count() > 0)
-                <div>
-                    <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">Identified Skill Gaps</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px">
-                        @foreach($allGaps->take(12) as $g)
-                        <span style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;border-radius:5px;padding:3px 10px;font-size:12px">{{ $g }}</span>
-                        @endforeach
-                    </div>
-                </div>
-                @endif
             </div>
+            @endif
+            @if($allGaps->count() > 0)
+            <div>
+                <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:10px">Identified Skill Gaps</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    @foreach($allGaps->take(12) as $g)
+                    <span style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;border-radius:5px;padding:3px 10px;font-size:12px">{{ $g }}</span>
+                    @endforeach
+                </div>
+            </div>
+            @endif
         </div>
-    </div>
+    </div></div>
     @endif
-
-    {{-- Best match explanation --}}
     @if($bestMatch?->explanation)
     <div class="card" style="margin-bottom:24px">
         <div class="card-header">
-            <span class="card-header-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                Best Match Explanation
-            </span>
+            <span class="card-header-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Best Match Explanation</span>
             <span style="margin-left:auto;font-size:12px;color:var(--gray-400)">{{ $bestMatch->project?->name }} · Score {{ number_format($bestMatch->match_score, 1) }}</span>
         </div>
-        <div class="card-body">
-            <p style="margin:0;font-size:13.5px;color:var(--gray-700);line-height:1.7">{{ $bestMatch->explanation }}</p>
-        </div>
+        <div class="card-body"><p style="margin:0;font-size:13.5px;color:var(--gray-700);line-height:1.7">{{ $bestMatch->explanation }}</p></div>
     </div>
     @endif
     @endif
 
-    {{-- ===== COMPUTED INDICES (from SignalSnapshot) ===== --}}
+    {{-- ===== BEHAVIOURAL INDICES (from SignalSnapshot) ===== --}}
     @if($latestSnap)
     <div style="display:flex;align-items:center;gap:8px;margin:0 0 14px">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -610,46 +710,36 @@
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
         @foreach([
-            ['Consistency', $latestSnap->consistency_index, 'Regularity of task completion and output over time'],
-            ['Workload Pressure', $latestSnap->workload_pressure, 'Volume and urgency of concurrent tasks'],
-            ['Context Switching', $latestSnap->context_switching_index, 'Frequency of switching between unrelated work areas'],
-            ['Collaboration', $latestSnap->collaboration_density, 'Breadth and depth of cross-team activity'],
-            ['Recovery Signal', $latestSnap->recovery_signal, 'Ability to recover output after high-pressure periods'],
+            ['Consistency',      $latestSnap->consistency_index,       'Regularity of task completion and output over time'],
+            ['Workload Pressure',$latestSnap->workload_pressure,        'Volume and urgency of concurrent tasks'],
+            ['Context Switching',$latestSnap->context_switching_index,  'Frequency of switching between unrelated work areas'],
+            ['Collaboration',    $latestSnap->collaboration_density,    'Breadth and depth of cross-team activity'],
+            ['Recovery Signal',  $latestSnap->recovery_signal,          'Output recovery pattern after high-pressure periods'],
         ] as [$label, $val, $hint])
-        <div class="card" style="margin:0">
-            <div class="card-body" style="padding:14px">
-                <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">{{ $label }}</div>
-                @if($val !== null)
-                @php $pct = min(100, round((float)$val * 10)); @endphp
-                <div style="font-size:22px;font-weight:700;color:var(--gray-800);line-height:1">{{ number_format((float)$val, 1) }}<span style="font-size:12px;color:var(--gray-400)">/10</span></div>
-                <div style="height:4px;background:var(--gray-100);border-radius:2px;overflow:hidden;margin-top:6px">
-                    <div style="height:100%;width:{{ $pct }}%;background:{{ $pct >= 70 ? '#2563eb' : ($pct >= 40 ? '#ca8a04' : '#e5e7eb') }};border-radius:2px"></div>
-                </div>
-                @else
-                <div style="font-size:22px;font-weight:700;color:var(--gray-300);line-height:1">—</div>
-                @endif
-                <div style="font-size:10.5px;color:var(--gray-400);margin-top:5px;line-height:1.4">{{ $hint }}</div>
+        <div class="card" style="margin:0"><div class="card-body" style="padding:14px">
+            <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:6px;font-weight:600">{{ $label }}</div>
+            @if($val !== null)
+            @php $pct = min(100, round((float)$val * 10)); @endphp
+            <div style="font-size:22px;font-weight:700;color:var(--gray-800);line-height:1">{{ number_format((float)$val, 1) }}<span style="font-size:12px;color:var(--gray-400)">/10</span></div>
+            <div style="height:4px;background:var(--gray-100);border-radius:2px;overflow:hidden;margin-top:6px">
+                <div style="height:100%;width:{{ $pct }}%;background:#2563eb;border-radius:2px"></div>
             </div>
-        </div>
+            @else
+            <div style="font-size:22px;font-weight:700;color:var(--gray-300);line-height:1">—</div>
+            @endif
+            <div style="font-size:10.5px;color:var(--gray-400);margin-top:5px;line-height:1.4">{{ $hint }}</div>
+        </div></div>
         @endforeach
     </div>
-
     @if($latestSnap->ai_summary)
     <div class="card" style="margin-bottom:24px">
         <div class="card-header">
-            <span class="card-header-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                AI Signal Summary
-            </span>
+            <span class="card-header-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> AI Signal Summary</span>
             <span style="margin-left:auto;font-size:12px;color:var(--gray-400)">{{ $latestSnap->period }}</span>
         </div>
-        <div class="card-body">
-            <p style="margin:0;font-size:13.5px;color:var(--gray-700);line-height:1.7">{{ $latestSnap->ai_summary }}</p>
-        </div>
+        <div class="card-body"><p style="margin:0;font-size:13.5px;color:var(--gray-700);line-height:1.7">{{ $latestSnap->ai_summary }}</p></div>
     </div>
     @endif
-
-    {{-- Historical snapshots --}}
     @if($snapshots->count() > 1)
     <div style="display:flex;align-items:center;gap:8px;margin:0 0 14px">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.08"/></svg>
@@ -657,17 +747,7 @@
     </div>
     <div class="card" style="margin-bottom:24px">
         <table>
-            <thead>
-                <tr>
-                    <th>Period</th>
-                    <th>Consistency</th>
-                    <th>Workload</th>
-                    <th>Context Sw.</th>
-                    <th>Collaboration</th>
-                    <th>Recovery</th>
-                    <th>AI Summary</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Period</th><th>Consistency</th><th>Workload</th><th>Context Sw.</th><th>Collaboration</th><th>Recovery</th><th>AI Summary</th></tr></thead>
             <tbody>
             @foreach($snapshots->take(12) as $snap)
             <tr>
