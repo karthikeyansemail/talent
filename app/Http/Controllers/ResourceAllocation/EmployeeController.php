@@ -76,7 +76,7 @@ class EmployeeController extends Controller
     public function show(Employee $employee)
     {
         $this->authorizeOrg($employee);
-        $employee->load(['department', 'jiraTasks', 'resourceMatches.project', 'resume']);
+        $employee->load(['department', 'tasks', 'resourceMatches.project', 'resume', 'signalSnapshots', 'signals']);
         return view('employees.show', compact('employee'));
     }
 

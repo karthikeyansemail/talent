@@ -27,8 +27,10 @@ class Employee extends Model
     public function organization() { return $this->belongsTo(Organization::class); }
     public function department() { return $this->belongsTo(Department::class); }
     public function resume() { return $this->belongsTo(Resume::class); }
-    public function jiraTasks() { return $this->hasMany(EmployeeJiraTask::class); }
-    public function zohoTasks() { return $this->hasMany(EmployeeZohoTask::class); }
+    public function tasks() { return $this->hasMany(EmployeeTask::class); }
+    // Source-scoped aliases for backwards compatibility
+    public function jiraTasks() { return $this->hasMany(EmployeeTask::class)->where('source_type', 'jira'); }
+    public function zohoTasks() { return $this->hasMany(EmployeeTask::class)->where('source_type', 'zoho_projects'); }
     public function resourceMatches() { return $this->hasMany(ProjectResourceMatch::class); }
     public function signals() { return $this->hasMany(EmployeeSignal::class); }
     public function signalSnapshots() { return $this->hasMany(SignalSnapshot::class); }

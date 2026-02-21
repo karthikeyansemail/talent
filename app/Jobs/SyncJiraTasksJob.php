@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Employee;
-use App\Models\EmployeeJiraTask;
+use App\Models\EmployeeTask;
 use App\Models\JiraConnection;
 use App\Services\AiServiceClient;
 use Illuminate\Bus\Queueable;
@@ -50,23 +50,32 @@ class SyncJiraTasksJob implements ShouldQueue
 
             foreach ($issues as $issue) {
                 $fields = $issue['fields'];
-                EmployeeJiraTask::updateOrCreate(
-                    ['employee_id' => $this->employee->id, 'jira_task_key' => $issue['key']],
+                $components = collect($fields['components'] ?? [])->pluck('name')->toArray();
+                EmployeeTask::updateOrCreate(
                     [
-                        'jira_connection_id' => $connection->id,
-                        'summary' => $fields['summary'] ?? '',
-                        'description' => is_array($fields['description'] ?? null)
+                        'employee_id' => $this->employee->id,
+                        'source_type' => 'jira',
+                        'external_id' => $issue['key'],
+                    ],
+                    [
+                        'organization_id'   => $this->employee->organization_id,
+                        'connection_id'     => null, // Jira uses dedicated jira_connections table
+                        'title'             => $fields['summary'] ?? '',
+                        'description'       => is_array($fields['description'] ?? null)
                             ? $this->extractAdfText($fields['description'])
                             : ($fields['description'] ?? ''),
-                        'task_type' => $fields['issuetype']['name'] ?? null,
-                        'status' => $fields['status']['name'] ?? null,
-                        'priority' => $fields['priority']['name'] ?? null,
-                        'labels' => $fields['labels'] ?? [],
-                        'components' => collect($fields['components'] ?? [])->pluck('name')->toArray(),
-                        'story_points' => $fields['customfield_10016'] ?? null,
-                        'resolution' => $fields['resolution']['name'] ?? null,
-                        'resolved_at' => $fields['resolutiondate'] ?? null,
-                        'created_in_jira_at' => $fields['created'] ?? null,
+                        'task_type'         => $fields['issuetype']['name'] ?? null,
+                        'status'            => $fields['status']['name'] ?? null,
+                        'priority'          => $fields['priority']['name'] ?? null,
+                        'labels'            => $fields['labels'] ?? [],
+                        'story_points'      => $fields['customfield_10016'] ?? null,
+                        'assignee_email'    => $this->employee->email,
+                        'completed_at'      => $fields['resolutiondate'] ?? null,
+                        'source_created_at' => $fields['created'] ?? null,
+                        'metadata'          => [
+                            'resolution'  => $fields['resolution']['name'] ?? null,
+                            'components'  => $components,
+                        ],
                     ]
                 );
             }
@@ -78,15 +87,15 @@ class SyncJiraTasksJob implements ShouldQueue
                 $result = $client->extractJiraSignals([
                     'employee_name' => $this->employee->full_name,
                     'tasks' => $tasks->map(fn($t) => [
-                        'key' => $t->jira_task_key,
-                        'summary' => $t->summary,
-                        'description' => $t->description ?? '',
-                        'type' => $t->task_type ?? 'Task',
-                        'status' => $t->status ?? 'Done',
-                        'priority' => $t->priority ?? 'Medium',
-                        'labels' => $t->labels ?? [],
+                        'key'          => $t->external_id,
+                        'summary'      => $t->title,
+                        'description'  => $t->description ?? '',
+                        'type'         => $t->task_type ?? 'Task',
+                        'status'       => $t->status ?? 'Done',
+                        'priority'     => $t->priority ?? 'Medium',
+                        'labels'       => $t->labels ?? [],
                         'story_points' => $t->story_points,
-                        'resolved_at' => $t->resolved_at?->toDateString(),
+                        'resolved_at'  => $t->completed_at?->toDateString(),
                     ])->toArray(),
                 ], $this->employee->organization_id);
 

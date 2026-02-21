@@ -30,6 +30,10 @@ use App\Http\Controllers\Settings\PlatformBrandingController;
 use App\Http\Controllers\Settings\OrgSwitcherController;
 use App\Http\Controllers\Settings\OrganizationManagementController;
 
+// OAuth callbacks — outside auth middleware (no session user required during redirect)
+Route::get('/auth/slack/callback', [IntegrationsController::class, 'oauthSlackCallback'])->name('integrations.oauth.slack.callback');
+Route::get('/auth/teams/callback', [IntegrationsController::class, 'oauthTeamsCallback'])->name('integrations.oauth.teams.callback');
+
 // Auth
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
@@ -131,6 +135,40 @@ Route::middleware(['auth'])->group(function () {
         Route::post('integrations/zoho-people/{connection}/test', [IntegrationsController::class, 'testZohoPeople'])->name('integrations.zohoPeople.test');
         Route::post('integrations/zoho-people/{connection}/sync', [IntegrationsController::class, 'syncZohoPeople'])->name('integrations.zohoPeople.sync');
         Route::delete('integrations/zoho-people/{connection}', [IntegrationsController::class, 'destroyZohoPeople'])->name('integrations.zohoPeople.destroy');
+
+        // OrangeHRM
+        Route::post('integrations/orangehrm', [IntegrationsController::class, 'storeOrangeHRM'])->name('integrations.orangehrm.store');
+        Route::post('integrations/orangehrm/{connection}/test', [IntegrationsController::class, 'testOrangeHRM'])->name('integrations.orangehrm.test');
+        Route::post('integrations/orangehrm/{connection}/sync', [IntegrationsController::class, 'syncOrangeHRM'])->name('integrations.orangehrm.sync');
+        Route::delete('integrations/orangehrm/{connection}', [IntegrationsController::class, 'destroyOrangeHRM'])->name('integrations.orangehrm.destroy');
+
+        // GitHub (Source Code Signals)
+        Route::post('integrations/github', [IntegrationsController::class, 'storeGitHub'])->name('integrations.github.store');
+        Route::post('integrations/github/{connection}/test', [IntegrationsController::class, 'testGitHub'])->name('integrations.github.test');
+        Route::post('integrations/github/{connection}/sync', [IntegrationsController::class, 'syncGitHub'])->name('integrations.github.sync');
+        Route::delete('integrations/github/{connection}', [IntegrationsController::class, 'destroyGitHub'])->name('integrations.github.destroy');
+
+        // Microsoft DevOps Boards
+        Route::post('integrations/devops', [IntegrationsController::class, 'storeDevOps'])->name('integrations.devops.store');
+        Route::post('integrations/devops/{connection}/test', [IntegrationsController::class, 'testDevOps'])->name('integrations.devops.test');
+        Route::post('integrations/devops/{connection}/sync', [IntegrationsController::class, 'syncDevOps'])->name('integrations.devops.sync');
+        Route::delete('integrations/devops/{connection}', [IntegrationsController::class, 'destroyDevOps'])->name('integrations.devops.destroy');
+
+        // GitHub Projects Boards
+        Route::post('integrations/github-projects', [IntegrationsController::class, 'storeGitHubProjects'])->name('integrations.githubProjects.store');
+        Route::post('integrations/github-projects/{connection}/test', [IntegrationsController::class, 'testGitHubProjects'])->name('integrations.githubProjects.test');
+        Route::post('integrations/github-projects/{connection}/sync', [IntegrationsController::class, 'syncGitHubProjects'])->name('integrations.githubProjects.sync');
+        Route::delete('integrations/github-projects/{connection}', [IntegrationsController::class, 'destroyGitHubProjects'])->name('integrations.githubProjects.destroy');
+
+        // Slack OAuth initiation + sync/destroy (no store form — uses OAuth)
+        Route::get('integrations/auth/slack', [IntegrationsController::class, 'oauthSlack'])->name('integrations.oauth.slack');
+        Route::post('integrations/slack/{connection}/sync', [IntegrationsController::class, 'syncSlack'])->name('integrations.slack.sync');
+        Route::delete('integrations/slack/{connection}', [IntegrationsController::class, 'destroySlack'])->name('integrations.slack.destroy');
+
+        // Microsoft Teams OAuth initiation + sync/destroy (no store form — uses OAuth)
+        Route::get('integrations/auth/teams', [IntegrationsController::class, 'oauthTeams'])->name('integrations.oauth.teams');
+        Route::post('integrations/teams/{connection}/sync', [IntegrationsController::class, 'syncTeams'])->name('integrations.teams.sync');
+        Route::delete('integrations/teams/{connection}', [IntegrationsController::class, 'destroyTeams'])->name('integrations.teams.destroy');
     });
 
     // Hiring Scoring Rules (hr_manager, org_admin, super_admin)
