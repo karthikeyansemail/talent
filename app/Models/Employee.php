@@ -35,6 +35,7 @@ class Employee extends Model
     public function signals() { return $this->hasMany(EmployeeSignal::class); }
     public function signalSnapshots() { return $this->hasMany(SignalSnapshot::class); }
     public function latestSignalSnapshot() { return $this->hasOne(SignalSnapshot::class)->latestOfMany(); }
+    public function sprintSheets() { return $this->hasMany(SprintSheet::class); }
 
     public function getFullNameAttribute(): string
     {

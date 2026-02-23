@@ -76,7 +76,7 @@ class EmployeeController extends Controller
     public function show(Employee $employee)
     {
         $this->authorizeOrg($employee);
-        $employee->load(['department', 'tasks', 'resourceMatches.project', 'resume', 'signalSnapshots', 'signals']);
+        $employee->load(['department', 'tasks', 'resourceMatches.project', 'resume', 'signals', 'sprintSheets']);
         $signalInsights = $this->computeSignalInsights($employee);
         return view('employees.show', compact('employee', 'signalInsights'));
     }
@@ -158,21 +158,57 @@ class EmployeeController extends Controller
             $highAll  = $tasks->whereIn('priority', ['High', 'Highest', 'Critical'])->count();
             $bugAll   = $tasks->where('task_type', 'Bug')->count();
 
+            // Cycle time (avg days from creation to completion) for current and prev period
+            $doneWithDates = $currTasks->where('status', 'Done')
+                ->filter(fn($t) => $t->completed_at && $t->source_created_at);
+            $cycleTimeAvg = $doneWithDates->count() > 0
+                ? (int) round($doneWithDates->avg(fn($t) => $t->source_created_at->diffInDays($t->completed_at)))
+                : null;
+
+            $doneWithDatesPrev = $prevTasks->where('status', 'Done')
+                ->filter(fn($t) => $t->completed_at && $t->source_created_at);
+            $cycleTimePrev = $doneWithDatesPrev->count() > 0
+                ? (int) round($doneWithDatesPrev->avg(fn($t) => $t->source_created_at->diffInDays($t->completed_at)))
+                : null;
+
+            // Aging: all-time open tasks older than 30 days
+            $agingTasks = $tasks
+                ->whereNotIn('status', ['Done', 'Closed', 'Resolved', "Won't Do"])
+                ->filter(fn($t) => $t->source_created_at && $t->source_created_at->diffInDays(now()) > 30)
+                ->count();
+
+            // Bug resolution rate (all-time: done bugs / all bugs)
+            $allBugs = $tasks->where('task_type', 'Bug');
+            $bugResolutionRate = $allBugs->count() > 0
+                ? (int) round($allBugs->where('status', 'Done')->count() / $allBugs->count() * 100)
+                : null;
+
+            // High-priority completion rate (all-time: done high/critical / all high/critical)
+            $allHigh = $tasks->whereIn('priority', ['High', 'Highest', 'Critical']);
+            $highPriorityDoneRate = $allHigh->count() > 0
+                ? (int) round($allHigh->where('status', 'Done')->count() / $allHigh->count() * 100)
+                : null;
+
             $insights['task'] = [
-                'period'              => $currPeriod,
-                'prev_period'         => $prevPeriod,
-                'total_current'       => $currTasks->count(),
-                'total_prev'          => $prevTasks->count(),
-                'done_current'        => $doneCurr,
-                'done_prev'           => $donePrev,
-                'completion_rate'     => $rateCurr,
-                'completion_rate_prev'=> $ratePrev,
-                'spillover'           => $spillover,
-                'velocity_sp'         => $spCurr > 0 ? $spCurr : null,
-                'velocity_sp_prev'    => $spPrev > 0 ? $spPrev : null,
-                'high_pct'            => $totalAll > 0 ? round($highAll / $totalAll * 100) : null,
-                'bug_pct'             => $totalAll > 0 ? round($bugAll / $totalAll * 100) : null,
-                'unique_task_types'   => $tasks->pluck('task_type')->filter()->unique()->count(),
+                'period'                => $currPeriod,
+                'prev_period'           => $prevPeriod,
+                'total_current'         => $currTasks->count(),
+                'total_prev'            => $prevTasks->count(),
+                'done_current'          => $doneCurr,
+                'done_prev'             => $donePrev,
+                'completion_rate'       => $rateCurr,
+                'completion_rate_prev'  => $ratePrev,
+                'spillover'             => $spillover,
+                'velocity_sp'           => $spCurr > 0 ? $spCurr : null,
+                'velocity_sp_prev'      => $spPrev > 0 ? $spPrev : null,
+                'high_pct'              => $totalAll > 0 ? round($highAll / $totalAll * 100) : null,
+                'bug_pct'               => $totalAll > 0 ? round($bugAll / $totalAll * 100) : null,
+                'unique_task_types'     => $tasks->pluck('task_type')->filter()->unique()->count(),
+                'cycle_time_avg'        => $cycleTimeAvg,
+                'cycle_time_prev'       => $cycleTimePrev,
+                'aging_tasks'           => $agingTasks,
+                'bug_resolution_rate'   => $bugResolutionRate,
+                'high_priority_done_rate' => $highPriorityDoneRate,
             ];
 
             // Task observations
@@ -190,6 +226,17 @@ class EmployeeController extends Controller
                     $absT = abs($t);
                     $insights['observations'][] = "Story point velocity {$dir} from {$spPrev} → {$spCurr} SP ({$absT}% change)";
                 }
+            }
+            if ($cycleTimeAvg !== null && $cycleTimePrev !== null && $cycleTimePrev > 0) {
+                $t = $this->trendPct($cycleTimeAvg, $cycleTimePrev);
+                if (abs($t) >= 20) {
+                    $dir = $t > 0 ? 'increased' : 'decreased';
+                    $absT = abs($t);
+                    $insights['observations'][] = "Avg task cycle time {$dir} from {$cycleTimePrev} → {$cycleTimeAvg} days ({$absT}% change)";
+                }
+            }
+            if ($agingTasks >= 2) {
+                $insights['observations'][] = "{$agingTasks} open tasks have been sitting for more than 30 days";
             }
         }
 
