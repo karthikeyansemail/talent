@@ -18,14 +18,14 @@ class SyncSlackMetricsJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
-        private IntegrationConnection $connection
+        private IntegrationConnection $integrationConnection
     ) {}
 
     public function handle(): void
     {
-        $credentials = $this->connection->credentials;
+        $credentials = $this->integrationConnection->credentials;
         $token       = $credentials['access_token'] ?? ($credentials['bot_token'] ?? '');
-        $orgId       = $this->connection->organization_id;
+        $orgId       = $this->integrationConnection->organization_id;
 
         try {
             $http = Http::withToken($token);
@@ -35,7 +35,7 @@ class SyncSlackMetricsJob implements ShouldQueue
 
             if (!$membersResponse->successful() || !($membersResponse->json('ok'))) {
                 Log::warning('Slack users.list failed', [
-                    'connection_id' => $this->connection->id,
+                    'connection_id' => $this->integrationConnection->id,
                     'error' => $membersResponse->json('error'),
                 ]);
                 return;
@@ -162,14 +162,14 @@ class SyncSlackMetricsJob implements ShouldQueue
                 $synced++;
             }
 
-            $this->connection->update(['last_synced_at' => now()]);
+            $this->integrationConnection->update(['last_synced_at' => now()]);
 
             Log::info("Slack metrics sync complete: {$synced} employees", [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
         } catch (\Exception $e) {
             Log::error('Slack metrics sync error: ' . $e->getMessage(), [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
             throw $e;
         }

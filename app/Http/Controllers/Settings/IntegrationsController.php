@@ -17,6 +17,7 @@ use App\Models\ZohoProjectsConnection;
 use App\Services\SpreadsheetParser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -444,26 +445,32 @@ class IntegrationsController extends Controller
         }
 
         $state = Str::random(32);
-        session(['slack_oauth_state' => $state]);
+        // Store in cache (not session) so the state survives a domain change,
+        // e.g. when OAuth is initiated via localhost but callback returns via ngrok.
+        Cache::put("slack_oauth_state_{$state}", true, now()->addMinutes(10));
 
-        $scopes = 'users:read,users:read.email,channels:read,channels:history,im:history,mpim:history,groups:history';
-        $params = http_build_query([
-            'client_id'    => $clientId,
-            'scope'        => $scopes,
-            'state'        => $state,
-            'redirect_uri' => route('integrations.oauth.slack.callback'),
-        ]);
+        // Bot token scopes — requires a bot user configured in the Slack app (App Home).
+        // chat:write + chat:write.customize allow posting as any employee for demo seeding.
+        $scopes = 'chat:write,chat:write.customize,channels:join,channels:read,groups:read,users:read,users:read.email,channels:history,groups:history,im:history,mpim:history';
+        $params = ['client_id' => $clientId, 'scope' => $scopes, 'state' => $state];
 
-        return redirect("https://slack.com/oauth/v2/authorize?{$params}");
+        // Only include redirect_uri if explicitly configured. When omitted, Slack uses the
+        // single registered URL automatically — avoids any exact-match issues (encoding, etc.)
+        $redirectUri = env('SLACK_REDIRECT_URI');
+        if ($redirectUri) {
+            $params['redirect_uri'] = $redirectUri;
+        }
+
+        return redirect("https://slack.com/oauth/v2/authorize?" . http_build_query($params));
     }
 
     public function oauthSlackCallback(Request $request)
     {
-        if (!session('slack_oauth_state') || session('slack_oauth_state') !== $request->state) {
+        // Cache::pull atomically reads and deletes the key (prevents replay).
+        if (!$request->state || !Cache::pull("slack_oauth_state_{$request->state}")) {
             return redirect()->route('settings.integrations.index')
                 ->with('error', 'Slack OAuth failed: invalid state. Please try again.');
         }
-        session()->forget('slack_oauth_state');
 
         if ($request->error) {
             return redirect()->route('settings.integrations.index')
@@ -471,12 +478,19 @@ class IntegrationsController extends Controller
         }
 
         try {
-            $response = Http::asForm()->post('https://slack.com/api/oauth.v2.access', [
+            $tokenParams = [
                 'client_id'     => config('services.slack.client_id'),
                 'client_secret' => config('services.slack.client_secret'),
                 'code'          => $request->code,
-                'redirect_uri'  => route('integrations.oauth.slack.callback'),
-            ]);
+            ];
+
+            // Must include redirect_uri in token exchange only if it was sent in the auth request
+            $redirectUri = env('SLACK_REDIRECT_URI');
+            if ($redirectUri) {
+                $tokenParams['redirect_uri'] = $redirectUri;
+            }
+
+            $response = Http::asForm()->post('https://slack.com/api/oauth.v2.access', $tokenParams);
 
             $data = $response->json();
             if (!($data['ok'] ?? false)) {
@@ -487,13 +501,24 @@ class IntegrationsController extends Controller
             $orgId = Auth::user()->currentOrganizationId();
             $teamName = $data['team']['name'] ?? 'Slack Workspace';
 
+            // bot scope flow:  token is in access_token (xoxb-...)
+            // user_scope flow: token is in authed_user.access_token (xoxp-...)
+            $accessToken = $data['access_token']
+                        ?? $data['authed_user']['access_token']
+                        ?? null;
+
+            if (!$accessToken) {
+                return redirect()->route('settings.integrations.index')
+                    ->with('error', 'Slack OAuth failed: no access token returned.');
+            }
+
             IntegrationConnection::where('organization_id', $orgId)->where('type', 'slack')->delete();
             IntegrationConnection::create([
                 'organization_id' => $orgId,
                 'type'            => 'slack',
                 'name'            => $teamName,
                 'credentials'     => [
-                    'access_token' => $data['access_token'],
+                    'access_token' => $accessToken,
                     'team_id'      => $data['team']['id'],
                     'team_name'    => $teamName,
                     'bot_user_id'  => $data['bot_user_id'] ?? null,

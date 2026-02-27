@@ -31,6 +31,12 @@ use App\Http\Controllers\Settings\OrgSwitcherController;
 use App\Http\Controllers\Settings\OrganizationManagementController;
 use App\Http\Controllers\Auth\SsoController;
 use App\Http\Controllers\Settings\SsoConfigController;
+use App\Http\Controllers\Settings\BillingController;
+use App\Http\Controllers\WebhookController;
+
+// Payment webhooks — outside auth (Stripe/Razorpay POST without session, verified by signature)
+Route::post('/webhooks/stripe',    [WebhookController::class, 'stripe'])->name('webhooks.stripe');
+Route::post('/webhooks/razorpay',  [WebhookController::class, 'razorpay'])->name('webhooks.razorpay');
 
 // OAuth callbacks — outside auth middleware (no session user required during redirect)
 Route::get('/auth/slack/callback', [IntegrationsController::class, 'oauthSlackCallback'])->name('integrations.oauth.slack.callback');
@@ -85,6 +91,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('applications/{application}/stage', [ApplicationController::class, 'updateStage'])->name('applications.updateStage');
         Route::post('applications/{application}/analyze', [ApplicationController::class, 'triggerAiAnalysis'])->name('applications.analyze');
         Route::get('applications/{application}/analysis-status', [ApplicationController::class, 'analysisStatus'])->name('applications.analysisStatus');
+        Route::post('jobs/{job}/analyze-all', [ApplicationController::class, 'analyzeAll'])->name('applications.analyzeAll');
 
         Route::post('applications/{application}/feedback', [InterviewFeedbackController::class, 'store'])->name('feedback.store');
         Route::delete('feedback/{feedback}', [InterviewFeedbackController::class, 'destroy'])->name('feedback.destroy');
@@ -102,7 +109,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('employees/import/sync-zoho-people', [EmployeeImportController::class, 'syncZohoPeople'])->name('employees.import.syncZohoPeople');
 
         Route::resource('employees', EmployeeController::class);
-        Route::post('employees/{employee}/sync-jira', [EmployeeController::class, 'syncJiraTasks'])->name('employees.syncJira');
+        // Generic work-data sync (connector-agnostic — dispatches whatever is active for the org)
+        Route::post('employees/{employee}/sync-work-data', [EmployeeController::class, 'syncWorkData'])->name('employees.syncWorkData');
+        Route::get('employees/{employee}/work-data-sync-status', [EmployeeController::class, 'workDataSyncStatus'])->name('employees.workDataSyncStatus');
+        // Backwards-compat aliases (old Jira-specific URLs still work)
+        Route::post('employees/{employee}/sync-jira', [EmployeeController::class, 'syncWorkData'])->name('employees.syncJira');
+        Route::get('employees/{employee}/jira-sync-status', [EmployeeController::class, 'workDataSyncStatus'])->name('employees.jiraSyncStatus');
+        Route::get('employees/{employee}/signal-intelligence', [EmployeeController::class, 'signalIntelligenceHtml'])->name('employees.signalIntelligenceHtml');
+        Route::post('employees/{employee}/analyze-work-pulse', [EmployeeController::class, 'analyzeWorkPulse'])->name('employees.analyzeWorkPulse');
+        Route::get('employees/{employee}/work-pulse-status', [EmployeeController::class, 'workPulseStatus'])->name('employees.workPulseStatus');
 
         Route::resource('jira-connections', JiraConnectionController::class)->except(['show', 'edit', 'update']);
         Route::post('jira-connections/{jira_connection}/test', [JiraConnectionController::class, 'test'])->name('jira-connections.test');
@@ -179,6 +194,19 @@ Route::middleware(['auth'])->group(function () {
         Route::get('integrations/auth/teams', [IntegrationsController::class, 'oauthTeams'])->name('integrations.oauth.teams');
         Route::post('integrations/teams/{connection}/sync', [IntegrationsController::class, 'syncTeams'])->name('integrations.teams.sync');
         Route::delete('integrations/teams/{connection}', [IntegrationsController::class, 'destroyTeams'])->name('integrations.teams.destroy');
+    });
+
+    // Billing (org_admin, super_admin)
+    Route::middleware(['role:org_admin,super_admin'])->prefix('settings')->name('settings.')->group(function () {
+        Route::get('billing',                         [BillingController::class, 'index'])->name('billing.index');
+        Route::post('billing/checkout/stripe',        [BillingController::class, 'stripeCheckout'])->name('billing.stripe.checkout');
+        Route::get('billing/success',                 [BillingController::class, 'success'])->name('billing.success');
+        Route::get('billing/cancel',                  [BillingController::class, 'cancel'])->name('billing.cancel');
+        Route::post('billing/razorpay/order',         [BillingController::class, 'razorpayCreateOrder'])->name('billing.razorpay.order');
+        Route::post('billing/razorpay/verify',        [BillingController::class, 'razorpayVerify'])->name('billing.razorpay.verify');
+        Route::post('billing/cancel-subscription',    [BillingController::class, 'cancelSubscription'])->name('billing.cancel-subscription');
+        Route::post('billing/dev-activate',           [BillingController::class, 'devActivate'])->name('billing.dev-activate');
+        Route::get('billing/deploy-guide',            [BillingController::class, 'deployGuide'])->name('billing.deploy-guide');
     });
 
     // Hiring Scoring Rules (hr_manager, org_admin, super_admin)

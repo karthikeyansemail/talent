@@ -10,16 +10,17 @@ class Employee extends Model
         'user_id', 'organization_id', 'first_name', 'last_name', 'email',
         'department_id', 'designation', 'resume_id', 'skills_from_resume',
         'skills_from_jira', 'combined_skill_profile', 'is_active',
-        'import_source', 'external_id',
+        'import_source', 'external_id', 'work_data_synced_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'skills_from_resume' => 'array',
-            'skills_from_jira' => 'array',
+            'skills_from_resume'   => 'array',
+            'skills_from_jira'     => 'array',
             'combined_skill_profile' => 'array',
-            'is_active' => 'boolean',
+            'is_active'            => 'boolean',
+            'work_data_synced_at'  => 'datetime',
         ];
     }
 
@@ -36,6 +37,7 @@ class Employee extends Model
     public function signalSnapshots() { return $this->hasMany(SignalSnapshot::class); }
     public function latestSignalSnapshot() { return $this->hasOne(SignalSnapshot::class)->latestOfMany(); }
     public function sprintSheets() { return $this->hasMany(SprintSheet::class); }
+    public function aiInsight() { return $this->hasOne(EmployeeAiInsight::class)->latestOfMany(); }
 
     public function getFullNameAttribute(): string
     {

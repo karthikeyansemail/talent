@@ -105,6 +105,14 @@ class ApplicationController extends Controller
             abort(403);
         }
 
+        $org = Auth::user()->currentOrganization();
+        if (!$org->canUse('ai_analysis')) {
+            if (request()->expectsJson()) {
+                return response()->json(['error' => 'AI analysis is not available on the Free plan. Upgrade to Cloud Enterprise.'], 403);
+            }
+            return back()->with('error', 'AI analysis is not available on the Free plan. Upgrade to Cloud Enterprise to use this feature.');
+        }
+
         AnalyzeResumeJob::dispatch($application);
 
         if (request()->expectsJson()) {
@@ -143,6 +151,29 @@ class ApplicationController extends Controller
         }
 
         return response()->json(['status' => 'processing']);
+    }
+
+    public function analyzeAll(JobPosting $job)
+    {
+        if ($job->organization_id !== Auth::user()->currentOrganizationId()) {
+            abort(403);
+        }
+
+        $org = Auth::user()->currentOrganization();
+        if (!$org->canUse('ai_analysis')) {
+            return response()->json(['error' => 'AI analysis is not available on your plan.'], 403);
+        }
+
+        $unanalyzed = $job->applications()->whereNull('ai_analyzed_at')->get();
+
+        foreach ($unanalyzed as $application) {
+            AnalyzeResumeJob::dispatch($application);
+        }
+
+        return response()->json([
+            'status' => 'queued',
+            'count'  => $unanalyzed->count(),
+        ]);
     }
 
     public function bulkApply(Request $request, JobPosting $job)

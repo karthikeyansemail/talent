@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class SyncJiraTasksJob implements ShouldQueue
@@ -22,17 +23,28 @@ class SyncJiraTasksJob implements ShouldQueue
 
     public function __construct(public Employee $employee) {}
 
+    public static function cacheKey(int $employeeId): string
+    {
+        return "work_data_sync_status_{$employeeId}";
+    }
+
     public function handle(): void
     {
+        $cacheKey = self::cacheKey($this->employee->id);
+        Cache::put($cacheKey, ['status' => 'running', 'pct' => 10, 'phase' => 'Connecting to Jira...'], now()->addMinutes(10));
+
         $connection = JiraConnection::where('organization_id', $this->employee->organization_id)
             ->where('is_active', true)
             ->first();
 
         if (!$connection) {
+            Cache::put($cacheKey, ['status' => 'failed', 'pct' => 0, 'phase' => 'No Jira connection configured'], now()->addMinutes(5));
             return;
         }
 
         try {
+            Cache::put($cacheKey, ['status' => 'running', 'pct' => 25, 'phase' => 'Fetching tasks from Jira...'], now()->addMinutes(10));
+
             $response = Http::withBasicAuth($connection->jira_email, $connection->jira_api_token)
                 ->withHeaders(['Accept' => 'application/json'])
                 ->timeout(60)
@@ -43,14 +55,45 @@ class SyncJiraTasksJob implements ShouldQueue
                 ]);
 
             if (!$response->successful()) {
+                Cache::put($cacheKey, ['status' => 'failed', 'pct' => 0, 'phase' => 'Jira API error: ' . $response->status()], now()->addMinutes(5));
                 return;
             }
 
             $issues = $response->json('issues', []);
+            $total  = count($issues);
+            Cache::put($cacheKey, ['status' => 'running', 'pct' => 40, 'phase' => "Processing {$total} tasks..."], now()->addMinutes(10));
 
-            foreach ($issues as $issue) {
-                $fields = $issue['fields'];
+            foreach ($issues as $i => $issue) {
+                $fields     = $issue['fields'];
                 $components = collect($fields['components'] ?? [])->pluck('name')->toArray();
+                $labels     = $fields['labels'] ?? [];
+
+                // Detect "Bug" from label when Jira project has no Bug issue type
+                $jiraTypeName = $fields['issuetype']['name'] ?? null;
+                $taskType = (in_array('Bug', $labels) && $jiraTypeName !== 'Bug')
+                    ? 'Bug'
+                    : $jiraTypeName;
+
+                // Check if task already exists with historical dates from seeding
+                $existing = EmployeeTask::where([
+                    'employee_id' => $this->employee->id,
+                    'source_type' => 'jira',
+                    'external_id' => $issue['key'],
+                ])->first();
+
+                // Preserve seeded historical dates — only use Jira dates if DB doesn't have them
+                $sourceCreatedAt = ($existing && $existing->source_created_at)
+                    ? $existing->source_created_at
+                    : ($fields['created'] ?? null);
+
+                $jiraCompletedAt = $fields['resolutiondate'] ?? null;
+                $completedAt = ($existing && $existing->completed_at && !$jiraCompletedAt)
+                    ? $existing->completed_at
+                    : $jiraCompletedAt;
+
+                // Preserve seeded story_points if Jira doesn't have them
+                $storyPoints = $fields['customfield_10016'] ?? ($existing?->story_points);
+
                 EmployeeTask::updateOrCreate(
                     [
                         'employee_id' => $this->employee->id,
@@ -59,19 +102,19 @@ class SyncJiraTasksJob implements ShouldQueue
                     ],
                     [
                         'organization_id'   => $this->employee->organization_id,
-                        'connection_id'     => null, // Jira uses dedicated jira_connections table
+                        'connection_id'     => null,
                         'title'             => $fields['summary'] ?? '',
                         'description'       => is_array($fields['description'] ?? null)
                             ? $this->extractAdfText($fields['description'])
                             : ($fields['description'] ?? ''),
-                        'task_type'         => $fields['issuetype']['name'] ?? null,
+                        'task_type'         => $taskType,
                         'status'            => $fields['status']['name'] ?? null,
                         'priority'          => $fields['priority']['name'] ?? null,
-                        'labels'            => $fields['labels'] ?? [],
-                        'story_points'      => $fields['customfield_10016'] ?? null,
+                        'labels'            => $labels,
+                        'story_points'      => $storyPoints,
                         'assignee_email'    => $this->employee->email,
-                        'completed_at'      => $fields['resolutiondate'] ?? null,
-                        'source_created_at' => $fields['created'] ?? null,
+                        'completed_at'      => $completedAt,
+                        'source_created_at' => $sourceCreatedAt,
                         'metadata'          => [
                             'resolution'  => $fields['resolution']['name'] ?? null,
                             'components'  => $components,
@@ -79,6 +122,8 @@ class SyncJiraTasksJob implements ShouldQueue
                     ]
                 );
             }
+
+            Cache::put($cacheKey, ['status' => 'running', 'pct' => 75, 'phase' => 'Extracting skill signals...'], now()->addMinutes(10));
 
             // Extract skill signals from Jira tasks via AI
             $tasks = $this->employee->jiraTasks()->get();
@@ -103,8 +148,19 @@ class SyncJiraTasksJob implements ShouldQueue
                     $this->employee->update(['skills_from_jira' => $result]);
                 }
             }
+
+            // Stamp employee-level sync timestamp
+            $this->employee->update(['work_data_synced_at' => now()]);
+
+            // Mark connection as synced
+            \App\Models\JiraConnection::where('organization_id', $this->employee->organization_id)
+                ->update(['last_synced_at' => now()]);
+
+            Cache::put($cacheKey, ['status' => 'completed', 'pct' => 100, 'phase' => 'Sync complete!', 'completed_at' => now()->toIso8601String()], now()->addMinutes(10));
+
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('SyncJiraTasksJob failed for employee ' . $this->employee->id . ': ' . $e->getMessage());
+            Cache::put($cacheKey, ['status' => 'failed', 'pct' => 0, 'phase' => 'Sync failed: ' . $e->getMessage()], now()->addMinutes(5));
         }
     }
 

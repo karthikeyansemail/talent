@@ -3,16 +3,32 @@
 namespace App\Http\Controllers\ResourceAllocation;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ComputeWorkPulseInsightsJob;
+use App\Jobs\SyncDevOasTasksJob;
+use App\Jobs\SyncGitHubProjectsJob;
+use App\Jobs\SyncGitHubSignalsJob;
 use App\Jobs\SyncJiraTasksJob;
+use App\Jobs\SyncSlackMetricsJob;
+use App\Jobs\SyncTeamsMetricsJob;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeAiInsight;
+use App\Models\IntegrationConnection;
+use App\Models\JiraConnection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class EmployeeController extends Controller
 {
     public function index(Request $request)
     {
+        $org = Auth::user()->currentOrganization();
+        if (!$org->canUse('resource_allocation')) {
+            return redirect()->route('dashboard')
+                ->with('error', 'Resource Allocation is not available on the Free plan. Upgrade to Cloud Enterprise to access this feature.');
+        }
+
         $orgId = Auth::user()->currentOrganizationId();
         $query = Employee::where('organization_id', $orgId)->with('department');
 
@@ -78,7 +94,60 @@ class EmployeeController extends Controller
         $this->authorizeOrg($employee);
         $employee->load(['department', 'tasks', 'resourceMatches.project', 'resume', 'signals', 'sprintSheets']);
         $signalInsights = $this->computeSignalInsights($employee);
-        return view('employees.show', compact('employee', 'signalInsights'));
+        $aiInsight = EmployeeAiInsight::where('employee_id', $employee->id)->first();
+        return view('employees.show', compact('employee', 'signalInsights', 'aiInsight'));
+    }
+
+    public function analyzeWorkPulse(Employee $employee)
+    {
+        $this->authorizeOrg($employee);
+        $employee->load('tasks');
+
+        if ($employee->tasks->isEmpty()) {
+            if (request()->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => 'No task data to analyze.'], 422);
+            }
+            return back()->with('error', 'No task data to analyze. Sync Jira tasks first.');
+        }
+
+        Cache::put(ComputeWorkPulseInsightsJob::cacheKey($employee->id), [
+            'status' => 'running',
+            'pct'    => 5,
+            'phase'  => 'Queuing analysis...',
+        ], now()->addMinutes(10));
+
+        ComputeWorkPulseInsightsJob::dispatch($employee);
+
+        if (request()->expectsJson()) {
+            return response()->json(['status' => 'queued', 'employee_id' => $employee->id]);
+        }
+
+        return back()->with('success', 'AI analysis queued. Reload in a moment to see results.');
+    }
+
+    public function workPulseStatus(Employee $employee)
+    {
+        $this->authorizeOrg($employee);
+        $progress = Cache::get(ComputeWorkPulseInsightsJob::cacheKey($employee->id));
+
+        if (!$progress) {
+            return response()->json(['status' => 'idle']);
+        }
+
+        if ($progress['status'] === 'completed') {
+            return response()->json([
+                'status'       => 'completed',
+                'pct'          => 100,
+                'phase'        => $progress['phase'],
+                'completed_at' => $progress['completed_at'] ?? now()->toIso8601String(),
+            ]);
+        }
+
+        return response()->json([
+            'status' => $progress['status'],
+            'pct'    => $progress['pct']   ?? 0,
+            'phase'  => $progress['phase'] ?? 'Processing...',
+        ]);
     }
 
     public function edit(Employee $employee)
@@ -111,11 +180,107 @@ class EmployeeController extends Controller
         return redirect()->route('employees.index')->with('success', 'Employee deleted.');
     }
 
-    public function syncJiraTasks(Employee $employee)
+    public function syncWorkData(Employee $employee)
     {
         $this->authorizeOrg($employee);
-        SyncJiraTasksJob::dispatch($employee);
-        return back()->with('success', 'Jira sync queued.');
+        $orgId    = $employee->organization_id;
+        $cacheKey = SyncJiraTasksJob::cacheKey($employee->id);
+
+        // ── Discover active connections first (no dispatching yet) ────────
+        $jira           = JiraConnection::where('organization_id', $orgId)->where('is_active', true)->first();
+        $devops         = IntegrationConnection::where('organization_id', $orgId)->where('type', 'devops_boards')->where('is_active', true)->first();
+        $githubProjects = IntegrationConnection::where('organization_id', $orgId)->where('type', 'github')->where('is_active', true)->first();
+        $slack          = IntegrationConnection::where('organization_id', $orgId)->where('type', 'slack')->where('is_active', true)->first();
+        $teams          = IntegrationConnection::where('organization_id', $orgId)->where('type', 'teams')->where('is_active', true)->first();
+        $githubSignals  = IntegrationConnection::where('organization_id', $orgId)->where('type', 'github_signals')->where('is_active', true)->first();
+
+        $dispatched = array_filter([
+            $jira           ? 'Jira'            : null,
+            $devops         ? 'DevOps Boards'   : null,
+            $githubProjects ? 'GitHub Projects' : null,
+            $slack          ? 'Slack'           : null,
+            $teams          ? 'Teams'           : null,
+            $githubSignals  ? 'GitHub Signals'  : null,
+        ]);
+
+        if (empty($dispatched)) {
+            $msg = 'No data sources connected. Configure integrations in Settings → Integrations.';
+            if (request()->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => $msg], 422);
+            }
+            return back()->with('error', $msg);
+        }
+
+        $sourceList = implode(', ', $dispatched);
+        $hasJira    = (bool) $jira;
+
+        // ── Set initial cache state BEFORE dispatching ────────────────────
+        // This must come before dispatch() so that with QUEUE_CONNECTION=sync
+        // the job's own cache writes (10%→100%) correctly override this value,
+        // and with async queues the poller sees "running" immediately.
+        if ($hasJira) {
+            Cache::put($cacheKey, [
+                'status' => 'running',
+                'pct'    => 5,
+                'phase'  => "Syncing: {$sourceList}...",
+            ], now()->addMinutes(10));
+        } else {
+            Cache::put($cacheKey, [
+                'status'       => 'completed',
+                'pct'          => 100,
+                'phase'        => "Sync dispatched: {$sourceList}",
+                'completed_at' => now()->toIso8601String(),
+            ], now()->addMinutes(10));
+        }
+
+        // ── Dispatch jobs ─────────────────────────────────────────────────
+        if ($jira)           SyncJiraTasksJob::dispatch($employee);
+        if ($devops)         SyncDevOasTasksJob::dispatch($devops);
+        if ($githubProjects) SyncGitHubProjectsJob::dispatch($githubProjects);
+        if ($slack)          SyncSlackMetricsJob::dispatch($slack);
+        if ($teams)          SyncTeamsMetricsJob::dispatch($teams);
+        if ($githubSignals)  SyncGitHubSignalsJob::dispatch($githubSignals);
+
+        if (request()->expectsJson()) {
+            return response()->json(['status' => 'queued', 'employee_id' => $employee->id, 'sources' => $dispatched]);
+        }
+
+        return back()->with('success', "Sync queued for: {$sourceList}.");
+    }
+
+    public function workDataSyncStatus(Employee $employee)
+    {
+        $this->authorizeOrg($employee);
+        $progress = Cache::get(SyncJiraTasksJob::cacheKey($employee->id));
+
+        if (!$progress) {
+            return response()->json(['status' => 'idle']);
+        }
+
+        if ($progress['status'] === 'completed') {
+            return response()->json([
+                'status'       => 'completed',
+                'pct'          => 100,
+                'phase'        => $progress['phase'],
+                'completed_at' => $progress['completed_at'] ?? now()->toIso8601String(),
+                'redirect'     => route('employees.show', $employee),
+            ]);
+        }
+
+        return response()->json([
+            'status' => $progress['status'],
+            'pct'    => $progress['pct']   ?? 0,
+            'phase'  => $progress['phase'] ?? 'Processing...',
+        ]);
+    }
+
+    public function signalIntelligenceHtml(Employee $employee)
+    {
+        $this->authorizeOrg($employee);
+        $employee->load(['tasks', 'signals', 'sprintSheets']);
+        $signalInsights = $this->computeSignalInsights($employee);
+        $aiInsight = EmployeeAiInsight::where('employee_id', $employee->id)->first();
+        return view('employees.partials.signal-intelligence', compact('employee', 'signalInsights', 'aiInsight'));
     }
 
     private function authorizeOrg(Employee $employee): void
@@ -211,32 +376,37 @@ class EmployeeController extends Controller
                 'high_priority_done_rate' => $highPriorityDoneRate,
             ];
 
-            // Task observations
+            $currLabel = $this->formatPeriod($currPeriod);
+            $prevLabel = $this->formatPeriod($prevPeriod);
+            $insights['task']['curr_period_label'] = $currLabel;
+            $insights['task']['prev_period_label'] = $prevLabel;
+
+            // Task observations — each includes explicit period context
             if ($rateCurr !== null && $ratePrev !== null && abs($rateCurr - $ratePrev) >= 10) {
                 $dir = $rateCurr > $ratePrev ? 'rose' : 'dropped';
-                $insights['observations'][] = "Task completion rate {$dir} from {$ratePrev}% → {$rateCurr}% this period";
+                $insights['observations'][] = "Task completion rate {$dir}: {$ratePrev}% ({$prevLabel}) → {$rateCurr}% ({$currLabel})";
             }
             if ($spillover >= 3) {
-                $insights['observations'][] = "Task spillover: {$spillover} tasks from the previous period remain incomplete";
+                $insights['observations'][] = "Task spillover: {$spillover} tasks from {$prevLabel} remain incomplete in {$currLabel}";
             }
             if ($spCurr > 0 && $spPrev > 0) {
                 $t = $this->trendPct($spCurr, $spPrev);
                 if (abs($t) >= 15) {
                     $dir = $t > 0 ? 'increased' : 'decreased';
                     $absT = abs($t);
-                    $insights['observations'][] = "Story point velocity {$dir} from {$spPrev} → {$spCurr} SP ({$absT}% change)";
+                    $insights['observations'][] = "Story point velocity {$dir}: {$spPrev} SP ({$prevLabel}) → {$spCurr} SP ({$currLabel}) — {$absT}% change";
                 }
             }
             if ($cycleTimeAvg !== null && $cycleTimePrev !== null && $cycleTimePrev > 0) {
                 $t = $this->trendPct($cycleTimeAvg, $cycleTimePrev);
                 if (abs($t) >= 20) {
-                    $dir = $t > 0 ? 'increased' : 'decreased';
+                    $dir = $t > 0 ? 'slower' : 'faster';
                     $absT = abs($t);
-                    $insights['observations'][] = "Avg task cycle time {$dir} from {$cycleTimePrev} → {$cycleTimeAvg} days ({$absT}% change)";
+                    $insights['observations'][] = "Avg task cycle time {$dir}: {$cycleTimePrev}d ({$prevLabel}) → {$cycleTimeAvg}d ({$currLabel}) — {$absT}% change";
                 }
             }
             if ($agingTasks >= 2) {
-                $insights['observations'][] = "{$agingTasks} open tasks have been sitting for more than 30 days";
+                $insights['observations'][] = "{$agingTasks} open tasks have been unresolved for more than 30 days";
             }
         }
 
@@ -296,6 +466,13 @@ class EmployeeController extends Controller
         }
 
         return $insights;
+    }
+
+    private function formatPeriod(?string $period): string
+    {
+        if (!$period) return '';
+        [$year, $month] = explode('-', $period);
+        return date('M Y', mktime(0, 0, 0, (int) $month, 1, (int) $year));
     }
 
     private function trendPct(float $current, float $previous): int

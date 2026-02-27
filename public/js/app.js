@@ -963,6 +963,14 @@ function initTabs() {
             });
         });
     });
+
+    // URL hash support: open the tab matching the URL hash on page load
+    // e.g. /employees/1#tab-signals will open the Work Pulse tab
+    var hash = window.location.hash.replace('#', '');
+    if (hash) {
+        var btn = document.querySelector('[data-tab="' + hash + '"]');
+        if (btn) btn.click();
+    }
 }
 
 // ============================================================
@@ -1647,6 +1655,46 @@ function initAiAnalysisButtons() {
         btn.addEventListener('click', function() {
             startAiAnalysis(this);
         });
+    });
+}
+
+function analyzeAllCandidates(btn) {
+    var url    = btn.dataset.url;
+    var csrf   = btn.dataset.csrf;
+    var btnText = document.getElementById('analyzeAllBtnText');
+
+    btn.disabled = true;
+    if (btnText) btnText.textContent = 'Queueing...';
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrf,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.status === 'queued') {
+            var count = data.count || 0;
+            if (btnText) btnText.textContent = 'Analysing ' + count + '...';
+
+            // Trigger startAiAnalysis on every unanalysed row button with a small stagger
+            var pending = document.querySelectorAll('.ai-analyze-btn[data-analyzed="false"]');
+            pending.forEach(function(rowBtn, i) {
+                setTimeout(function() { startAiAnalysis(rowBtn); }, i * 300);
+            });
+        } else {
+            if (btnText) btnText.textContent = 'Analyse All';
+            btn.disabled = false;
+            alert(data.error || 'Failed to queue analysis.');
+        }
+    })
+    .catch(function() {
+        if (btnText) btnText.textContent = 'Analyse All';
+        btn.disabled = false;
+        alert('Failed to start bulk analysis. Please try again.');
     });
 }
 
