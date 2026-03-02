@@ -19,7 +19,7 @@ class NalamJiraSeeder extends Seeder
             'organization_id' => $org->id,
             'jira_base_url'   => 'https://nalamsystems.atlassian.net',
             'jira_email'      => 'rahul.kumar@nalamsystems.work',
-            'jira_api_token'  => 'ATATT3xFfGF0Mj_lsdKT3sBuqeVXelwrhqxyTmBOJ-RagtDO1ePH7BiOM_jSPNhjVqH8aZ05O-fYojbF8lA8Otr3QZlD5L5v_XY5kizx5N8_inky6_ITiS8jBbcvQrgbrjx1iTYTcZVUunr-3zEoCSl4oPF_8BwTEirT1GWPbvPFwZ4GgCAxUMU=ACD85B75',
+            'jira_api_token'  => env('NALAM_JIRA_API_TOKEN', 'your-jira-api-token-here'),
             'is_active'       => true,
         ]);
 

@@ -14,7 +14,7 @@ class NalamJiraUpdateDescriptionsSeeder extends Seeder
 {
     private string $baseUrl = 'https://nalamsystems.atlassian.net';
     private string $email   = 'rahul.kumar@nalamsystems.work';
-    private string $token   = 'ATATT3xFfGF0Mj_lsdKT3sBuqeVXelwrhqxyTmBOJ-RagtDO1ePH7BiOM_jSPNhjVqH8aZ05O-fYojbF8lA8Otr3QZlD5L5v_XY5kizx5N8_inky6_ITiS8jBbcvQrgbrjx1iTYTcZVUunr-3zEoCSl4oPF_8BwTEirT1GWPbvPFwZ4GgCAxUMU=ACD85B75';
+    private string $token   = '';
 
     private function jira(): \Illuminate\Http\Client\PendingRequest
     {
