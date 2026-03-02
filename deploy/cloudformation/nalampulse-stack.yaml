@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Nalam Pulse Self-Hosted Enterprise — provisions an EC2 instance,
+  installs Docker, and runs the automated installer. After the stack
+  creates, point your domain to the output IP and SSL is set up automatically.
+
+# ---------------------------------------------------------------------------
+# Parameters — these become the form fields in the CloudFormation console
+# ---------------------------------------------------------------------------
+Parameters:
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: "Existing EC2 key pair for SSH access (required for troubleshooting)"
+
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    AllowedValues:
+      - t3.medium
+      - t3.large
+      - t3.xlarge
+      - t3.2xlarge
+    Description: "t3.medium (2 vCPU / 4 GB) is minimum. t3.large recommended for production."
+
+  LicenseKey:
+    Type: String
+    NoEcho: true
+    Description: "Nalam Pulse license key (from your subscription email)"
+    MinLength: 8
+
+  Domain:
+    Type: String
+    Description: "Domain name for your installation, e.g. pulse.yourcompany.com"
+    AllowedPattern: "^[a-z0-9]([a-z0-9\\-\\.]+)?[a-z0-9]$"
+    ConstraintDescription: "Must be a valid domain name (lowercase, hyphens, dots allowed)"
+
+  SMTPHost:
+    Type: String
+    Description: "SMTP server hostname (e.g. smtp.gmail.com or smtp.mailgun.org)"
+
+  SMTPPort:
+    Type: String
+    Default: "587"
+    AllowedValues: ["25", "465", "587", "2525"]
+    Description: "SMTP port — use 587 for most providers (TLS)"
+
+  SMTPUser:
+    Type: String
+    Description: "SMTP username / from email address"
+
+  SMTPPass:
+    Type: String
+    NoEcho: true
+    Description: "SMTP password or app password"
+
+  AIApiKey:
+    Type: String
+    NoEcho: true
+    Description: "OpenAI API key (sk-...) for AI analysis features"
+
+  # CloudFormation resolves the latest Ubuntu 22.04 AMI per region automatically
+  LatestUbuntuAMI:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+    Description: "Do not change — auto-resolves to Ubuntu 22.04 LTS in your region"
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+Resources:
+
+  # Security Group — HTTP, HTTPS, SSH
+  NalamSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Nalam Pulse — allow HTTP, HTTPS, SSH inbound"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: SSH
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP (redirected to HTTPS by Nginx)
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-sg"
+
+  # Elastic IP — stable address, safe to add DNS before stack completes
+  NalamEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  # EC2 instance
+  NalamInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref LatestUbuntuAMI
+      KeyName: !Ref KeyPairName
+      SecurityGroups:
+        - !Ref NalamSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}"
+      # UserData runs as root on first boot — installs Docker and launches the app
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          exec > /var/log/nalampulse-cf.log 2>&1
+
+          export NALAM_LICENSE="${LicenseKey}"
+          export NALAM_DOMAIN="${Domain}"
+          export NALAM_SMTP_HOST="${SMTPHost}"
+          export NALAM_SMTP_PORT="${SMTPPort}"
+          export NALAM_SMTP_USER="${SMTPUser}"
+          export NALAM_SMTP_PASS="${SMTPPass}"
+          export NALAM_AI_KEY="${AIApiKey}"
+
+          curl -fsSL \
+            https://raw.githubusercontent.com/nalampulse/deploy/main/scripts/install.sh \
+            | bash
+
+  # Associate Elastic IP with the instance
+  NalamEIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref NalamInstance
+      EIP: !Ref NalamEIP
+
+# ---------------------------------------------------------------------------
+# Outputs — shown in CloudFormation console after stack creates
+# ---------------------------------------------------------------------------
+Outputs:
+
+  PublicIP:
+    Description: "Static IP address for your Nalam Pulse server"
+    Value: !Ref NalamEIP
+
+  Step1DNS:
+    Description: "STEP 1 — Add this DNS A record now (can do before install finishes)"
+    Value: !Sub "${Domain} → ${NalamEIP}  (A record in your DNS provider)"
+
+  Step2Wait:
+    Description: "STEP 2 — Wait ~10 minutes for Docker + SSL setup to complete"
+    Value: "Installation runs in the background. Check /var/log/nalampulse-install.log via SSH."
+
+  Step3Login:
+    Description: "STEP 3 — Open your browser"
+    Value: !Sub "https://${Domain}  (admin@acme.com / password — change immediately)"
+
+  SSHCommand:
+    Description: "SSH into your server if needed"
+    Value: !Sub "ssh -i ${KeyPairName}.pem ubuntu@${NalamEIP}"
+
+  CheckLogs:
+    Description: "Monitor installation progress"
+    Value: "ssh in, then: tail -f /var/log/nalampulse-install.log"

@@ -1,9 +1,30 @@
 vendor/
 node_modules/
 .env
+.env.*
 .git/
-ai-service/
+.github/
 storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
+bootstrap/cache/*.php
+
+# These folders are not part of the Laravel app
+ai-service/
+deploy/
+website/
+portal/
+automation/
+
+# Docs / plans
+*.md
+plan.md
+SPECIFICATION.md
+nul
+
+# Dev docker files
+docker-compose.yml
+docker-compose.override.yml
+tests/
+.phpunit.cache

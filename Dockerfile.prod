@@ -1,0 +1,59 @@
+FROM php:8.2-apache
+
+# ── Apache modules ────────────────────────────────────────────────────────────
+RUN a2enmod rewrite headers
+
+# ── System packages + PHP extensions ──────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git curl libpng-dev libonig-dev libxml2-dev libzip-dev \
+        zip unzip \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# ── PHP opcache tuning (production) ───────────────────────────────────────────
+RUN { \
+    echo 'opcache.enable=1'; \
+    echo 'opcache.memory_consumption=256'; \
+    echo 'opcache.max_accelerated_files=20000'; \
+    echo 'opcache.validate_timestamps=0'; \
+    echo 'opcache.revalidate_freq=0'; \
+} > /usr/local/etc/php/conf.d/opcache.ini
+
+# ── Apache: point document root to Laravel public/ ────────────────────────────
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
+        /etc/apache2/sites-available/*.conf \
+        /etc/apache2/apache2.conf \
+        /etc/apache2/conf-available/*.conf
+
+# ── Composer ──────────────────────────────────────────────────────────────────
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+# ── Install PHP dependencies (layer cache: only re-runs if composer.* changes) ─
+COPY composer.json composer.lock ./
+RUN composer install \
+        --no-dev \
+        --no-scripts \
+        --no-autoloader \
+        --prefer-dist
+
+# ── Copy application source ────────────────────────────────────────────────────
+COPY . .
+
+# ── Finalise autoloader and clear any cached state ────────────────────────────
+RUN composer dump-autoload --optimize --no-dev \
+    && php artisan package:discover --ansi 2>/dev/null || true
+
+# ── Storage permissions ────────────────────────────────────────────────────────
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# ── Entrypoint ─────────────────────────────────────────────────────────────────
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 80
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

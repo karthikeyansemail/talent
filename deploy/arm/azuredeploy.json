@@ -1,0 +1,236 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Nalam Pulse Self-Hosted Enterprise — provisions an Azure VM with Ubuntu 22.04, installs Docker, and runs the automated installer."
+  },
+  "parameters": {
+    "vmName": {
+      "type": "string",
+      "defaultValue": "nalam-pulse",
+      "metadata": { "description": "Name for the virtual machine and related resources" }
+    },
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": "nalamadmin",
+      "metadata": { "description": "SSH admin username for the VM" }
+    },
+    "sshPublicKey": {
+      "type": "securestring",
+      "metadata": { "description": "SSH public key content (paste the contents of your ~/.ssh/id_rsa.pub)" }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_B2s",
+      "allowedValues": ["Standard_B2s", "Standard_B2ms", "Standard_D2s_v3", "Standard_D4s_v3"],
+      "metadata": { "description": "Standard_B2s (2 vCPU / 4 GB) minimum. Standard_B2ms for production." }
+    },
+    "licenseKey": {
+      "type": "securestring",
+      "metadata": { "description": "Nalam Pulse license key (from your subscription email)" }
+    },
+    "domain": {
+      "type": "string",
+      "metadata": { "description": "Domain name for your installation, e.g. pulse.yourcompany.com" }
+    },
+    "smtpHost": {
+      "type": "string",
+      "metadata": { "description": "SMTP server hostname (e.g. smtp.gmail.com)" }
+    },
+    "smtpPort": {
+      "type": "string",
+      "defaultValue": "587",
+      "metadata": { "description": "SMTP port — 587 for most providers" }
+    },
+    "smtpUser": {
+      "type": "string",
+      "metadata": { "description": "SMTP username / from email address" }
+    },
+    "smtpPass": {
+      "type": "securestring",
+      "metadata": { "description": "SMTP password or app password" }
+    },
+    "aiApiKey": {
+      "type": "securestring",
+      "metadata": { "description": "OpenAI API key (sk-...) for AI analysis features" }
+    }
+  },
+  "variables": {
+    "location": "[resourceGroup().location]",
+    "nicName": "[concat(parameters('vmName'), '-nic')]",
+    "nsgName": "[concat(parameters('vmName'), '-nsg')]",
+    "publicIPName": "[concat(parameters('vmName'), '-ip')]",
+    "vnetName": "[concat(parameters('vmName'), '-vnet')]",
+    "subnetName": "default",
+    "installCommand": "[concat('export NALAM_LICENSE=\"', parameters('licenseKey'), '\" NALAM_DOMAIN=\"', parameters('domain'), '\" NALAM_SMTP_HOST=\"', parameters('smtpHost'), '\" NALAM_SMTP_PORT=\"', parameters('smtpPort'), '\" NALAM_SMTP_USER=\"', parameters('smtpUser'), '\" NALAM_SMTP_PASS=\"', parameters('smtpPass'), '\" NALAM_AI_KEY=\"', parameters('aiApiKey'), '\" && curl -fsSL https://raw.githubusercontent.com/nalampulse/deploy/main/scripts/install.sh | bash')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2022-07-01",
+      "name": "[variables('publicIPName')]",
+      "location": "[variables('location')]",
+      "sku": { "name": "Standard" },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "dnsSettings": {
+          "domainNameLabel": "[concat(parameters('vmName'), '-', uniqueString(resourceGroup().id))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2022-07-01",
+      "name": "[variables('nsgName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "SSH",
+            "properties": {
+              "priority": 1000, "protocol": "Tcp", "access": "Allow", "direction": "Inbound",
+              "sourceAddressPrefix": "*", "sourcePortRange": "*",
+              "destinationAddressPrefix": "*", "destinationPortRange": "22"
+            }
+          },
+          {
+            "name": "HTTP",
+            "properties": {
+              "priority": 1010, "protocol": "Tcp", "access": "Allow", "direction": "Inbound",
+              "sourceAddressPrefix": "*", "sourcePortRange": "*",
+              "destinationAddressPrefix": "*", "destinationPortRange": "80"
+            }
+          },
+          {
+            "name": "HTTPS",
+            "properties": {
+              "priority": 1020, "protocol": "Tcp", "access": "Allow", "direction": "Inbound",
+              "sourceAddressPrefix": "*", "sourcePortRange": "*",
+              "destinationAddressPrefix": "*", "destinationPortRange": "443"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2022-07-01",
+      "name": "[variables('vnetName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "addressSpace": { "addressPrefixes": ["10.0.0.0/16"] },
+        "subnets": [{
+          "name": "[variables('subnetName')]",
+          "properties": { "addressPrefix": "10.0.0.0/24" }
+        }]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2022-07-01",
+      "name": "[variables('nicName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+      ],
+      "properties": {
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+        },
+        "ipConfigurations": [{
+          "name": "ipconfig1",
+          "properties": {
+            "privateIPAllocationMethod": "Dynamic",
+            "publicIPAddress": {
+              "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))]"
+            },
+            "subnet": {
+              "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '/subnets/', variables('subnetName'))]"
+            }
+          }
+        }]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2022-08-01",
+      "name": "[parameters('vmName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": { "vmSize": "[parameters('vmSize')]" },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "0001-com-ubuntu-server-jammy",
+            "sku": "22_04-lts-gen2",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage",
+            "diskSizeGB": 32,
+            "managedDisk": { "storageAccountType": "StandardSSD_LRS" }
+          }
+        },
+        "osProfile": {
+          "computerName": "[parameters('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [{
+                "path": "[concat('/home/', parameters('adminUsername'), '/.ssh/authorized_keys')]",
+                "keyData": "[parameters('sshPublicKey')]"
+              }]
+            }
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [{
+            "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+          }]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2022-08-01",
+      "name": "[concat(parameters('vmName'), '/install-nalam-pulse')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', parameters('vmName'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.1",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "commandToExecute": "[variables('installCommand')]"
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "publicIP": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))).ipAddress]"
+    },
+    "step1DNS": {
+      "type": "string",
+      "value": "[concat('Add DNS A record: ', parameters('domain'), ' → ', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))).ipAddress)]"
+    },
+    "step2Login": {
+      "type": "string",
+      "value": "[concat('After DNS propagates (~10 min): https://', parameters('domain'), '  |  admin@acme.com / password')]"
+    },
+    "sshCommand": {
+      "type": "string",
+      "value": "[concat('ssh ', parameters('adminUsername'), '@', reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPName'))).ipAddress)]"
+    }
+  }
+}
