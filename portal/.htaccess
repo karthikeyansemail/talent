@@ -1,0 +1,17 @@
+Options -Indexes
+
+# Protect includes and setup folder from direct web access
+<FilesMatch "^(config|db|auth|helpers|bootstrap|layout-start|layout-end)\.php$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirect root to dashboard (or login if not authenticated)
+    RewriteRule ^$ dashboard.php [L]
+</IfModule>
+
+# Block direct access to setup folder
+<IfModule mod_authz_core.c>
+</IfModule>

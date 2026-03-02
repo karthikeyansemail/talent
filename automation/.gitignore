@@ -1,0 +1,7 @@
+node_modules/
+.env
+.bridge/
+playwright/screenshots/*
+!playwright/screenshots/.gitkeep
+test-results/
+playwright-report/

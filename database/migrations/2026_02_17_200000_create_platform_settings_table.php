@@ -18,9 +18,9 @@ return new class extends Migration
 
         // Seed default branding
         DB::table('platform_settings')->insert([
-            ['key' => 'app_name', 'value' => 'Nalam Compass', 'created_at' => now(), 'updated_at' => now()],
+            ['key' => 'app_name', 'value' => 'Nalam Pulse', 'created_at' => now(), 'updated_at' => now()],
             ['key' => 'app_name_short', 'value' => 'Nalam', 'created_at' => now(), 'updated_at' => now()],
-            ['key' => 'app_name_accent', 'value' => 'Compass', 'created_at' => now(), 'updated_at' => now()],
+            ['key' => 'app_name_accent', 'value' => 'Pulse', 'created_at' => now(), 'updated_at' => now()],
             ['key' => 'app_logo_path', 'value' => null, 'created_at' => now(), 'updated_at' => now()],
         ]);
     }

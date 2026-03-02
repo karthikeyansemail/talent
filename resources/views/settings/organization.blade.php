@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'Organization Settings')
-@section('page-title', 'Organization Settings')
+@section('title', 'Workspace Settings')
+@section('page-title', 'Workspace Settings')
 @section('content')
 <div class="page-header">
-    <h1>Organization Settings</h1>
+    <h1>Workspace Settings</h1>
 </div>
 <div class="card">
     <div class="card-header">

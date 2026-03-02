@@ -142,3 +142,55 @@ class SignalAnalysisRequest(BaseModel):
     signals: list[dict] = Field(
         ..., description="List of raw signal data points"
     )
+
+
+class WorkPulseTask(BaseModel):
+    """A single task record for work pulse analysis."""
+
+    summary: str = Field(..., description="Task title / summary")
+    type: str = Field(default="Task", description="Task type: Bug, Story, Task, Epic, etc.")
+    status: str = Field(default="To Do", description="Current status of the task")
+    priority: str = Field(default="Medium", description="Priority level")
+    story_points: float | None = Field(default=None, description="Story point estimate")
+    created_at: str = Field(default="", description="Creation date (YYYY-MM-DD)")
+    completed_at: str | None = Field(default=None, description="Completion date (YYYY-MM-DD)")
+    labels: list[str] = Field(default_factory=list, description="Task labels or tags")
+
+
+class CommSignalEntry(BaseModel):
+    """A single communication / collaboration metric (Slack, Teams, Zoho People, etc.)."""
+
+    source: str = Field(..., description="Source system: slack, teams, zoho_people, etc.")
+    metric_key: str = Field(..., description="E.g. messages_sent_count, meetings_attended_count")
+    metric_value: float = Field(..., description="Numeric metric value")
+    metric_unit: str = Field(default="", description="Unit: count, percent, hours, etc.")
+    period: str = Field(default="", description="Period string, e.g. 2026-W06")
+
+
+class SprintRecord(BaseModel):
+    """One sprint's planning vs. completion data from sprint sheets."""
+
+    sprint_name: str = Field(default="", description="Sprint name or identifier")
+    planned_points: int | None = Field(default=None, description="Story points planned")
+    completed_points: int | None = Field(default=None, description="Story points completed")
+    tasks_planned: int | None = Field(default=None, description="Number of tasks planned")
+    tasks_completed: int | None = Field(default=None, description="Number of tasks completed")
+    start_date: str = Field(default="", description="Sprint start date (YYYY-MM-DD)")
+    end_date: str = Field(default="", description="Sprint end date (YYYY-MM-DD)")
+
+
+class WorkPulseAnalyzeRequest(BaseModel):
+    """Request payload for AI work pulse analysis."""
+
+    employee_name: str = Field(..., description="Full name of the employee")
+    designation: str = Field(default="", description="Job title / designation")
+    department: str = Field(default="", description="Department name")
+    tasks: list[WorkPulseTask] = Field(..., description="Task history to analyze")
+    comm_signals: list[CommSignalEntry] = Field(
+        default_factory=list,
+        description="Communication and collaboration metrics from Slack, Teams, attendance, etc.",
+    )
+    sprint_records: list[SprintRecord] = Field(
+        default_factory=list,
+        description="Sprint planning accuracy data from sprint sheets",
+    )

@@ -17,21 +17,13 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create platform organization (super admin)
-        $platformOrg = Organization::create([
-            'name' => 'Nalam Compass',
-            'slug' => 'nalam-compass',
-            'domain' => 'nalamcompass.com',
-            'is_active' => true,
-        ]);
-
-        // Create super admin
+        // Create super admin — not tied to any organization (belongs to the whole instance)
         User::create([
             'name' => 'Platform Admin',
-            'email' => 'admin@nalamcompass.com',
+            'email' => 'admin@nalampulse.com',
             'password' => 'password',
             'role' => 'super_admin',
-            'organization_id' => $platformOrg->id,
+            'organization_id' => null,
             'is_active' => true,
         ]);
 

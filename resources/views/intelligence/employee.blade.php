@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', $employee->full_name . ' - Signals')
-@section('page-title', 'Employee Signals')
+@section('title', $employee->full_name . ' - Work Pulse')
+@section('page-title', 'Work Pulse')
 @section('content')
 <div class="page-header">
     <h1>{{ $employee->full_name }}</h1>

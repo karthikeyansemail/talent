@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', $branding['app_name'] ?? 'Nalam Compass')</title>
+    <title>@yield('title', $branding['app_name'] ?? 'Nalam Pulse')</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     {!! $themeCss ?? '' !!}
 </head>

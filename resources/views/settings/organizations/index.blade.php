@@ -1,12 +1,12 @@
 @extends('layouts.app')
-@section('title', 'Organizations')
-@section('page-title', 'Organizations')
+@section('title', 'All Workspaces')
+@section('page-title', 'All Workspaces')
 @section('content')
 <div class="page-header">
-    <h1>Organizations</h1>
+    <h1>All Workspaces</h1>
     <a href="{{ route('settings.organizations.create') }}" class="btn btn-primary">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        New Organization
+        New Workspace
     </a>
 </div>
 
@@ -14,7 +14,7 @@
     <table>
         <thead>
             <tr>
-                <th>Organization</th>
+                <th>Workspace</th>
                 <th>Domain</th>
                 <th>Users</th>
                 <th>Status</th>

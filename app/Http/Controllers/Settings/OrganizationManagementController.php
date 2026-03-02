@@ -62,20 +62,36 @@ class OrganizationManagementController extends Controller
 
     public function update(Request $request, Organization $organization)
     {
-        $request->validate([
+        $rules = [
             'name' => 'required|string|max:255',
             'domain' => 'nullable|string|max:255',
             'is_active' => 'boolean',
             'is_premium' => 'boolean',
-        ]);
+        ];
 
-        $organization->update([
+        if (\Illuminate\Support\Facades\Auth::user()->isSuperAdmin()) {
+            $rules['subscription_plan'] = 'nullable|in:free,cloud_enterprise,self_hosted';
+            $rules['subscription_expires_at'] = 'nullable|date';
+            $rules['support_expires_at'] = 'nullable|date';
+        }
+
+        $request->validate($rules);
+
+        $data = [
             'name' => $request->name,
             'slug' => Str::slug($request->name),
             'domain' => $request->domain,
             'is_active' => $request->boolean('is_active'),
             'is_premium' => $request->boolean('is_premium'),
-        ]);
+        ];
+
+        if (\Illuminate\Support\Facades\Auth::user()->isSuperAdmin()) {
+            $data['subscription_plan'] = $request->subscription_plan ?? 'free';
+            $data['subscription_expires_at'] = $request->subscription_expires_at ?: null;
+            $data['support_expires_at'] = $request->support_expires_at ?: null;
+        }
+
+        $organization->update($data);
 
         return back()->with('success', "Organization \"{$organization->name}\" updated.");
     }

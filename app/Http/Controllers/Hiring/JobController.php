@@ -65,7 +65,17 @@ class JobController extends Controller
             'status' => 'required|in:draft,open',
         ]);
 
-        $validated['organization_id'] = Auth::user()->currentOrganizationId();
+        $orgId = Auth::user()->currentOrganizationId();
+        $org = Auth::user()->currentOrganization();
+        $jobLimit = $org->jobLimit();
+        if ($jobLimit !== null) {
+            $count = JobPosting::where('organization_id', $orgId)->count();
+            if ($count >= $jobLimit) {
+                return back()->with('error', "Your Free plan allows up to {$jobLimit} job postings. Upgrade to Cloud Enterprise for unlimited jobs.");
+            }
+        }
+
+        $validated['organization_id'] = $orgId;
         $validated['created_by'] = Auth::id();
         $validated['required_skills'] = $request->required_skills
             ? array_map('trim', explode(',', $request->required_skills))

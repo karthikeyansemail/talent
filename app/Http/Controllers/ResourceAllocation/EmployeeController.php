@@ -465,7 +465,206 @@ class EmployeeController extends Controller
             }
         }
 
+        // ── Engagement Score & Attrition Risk ─────────────────────────
+        $insights['engagement'] = $this->computeEngagementRisk($insights);
+
         return $insights;
+    }
+
+    /**
+     * Compute a 0–100 engagement score and an attrition risk level
+     * from task + comm signal data already collected in $insights.
+     *
+     * Engagement score components (each 0–100):
+     *   40% — task completion rate (curr period)
+     *   20% — Slack/Teams active days this week (out of 5)
+     *   20% — collaboration breadth (unique collaborators, capped at 10)
+     *   20% — work-life balance (inverse of after_hours_pct, capped at 50%)
+     *
+     * Attrition risk: counts declining trends across key metrics and maps
+     * to three levels: Low | Watch | Elevated
+     * Language is purposely non-predictive — it reflects current engagement
+     * signals, NOT a prediction of departure.
+     */
+    private function computeEngagementRisk(array $insights): array
+    {
+        $ti = $insights['task'] ?? [];
+        $ci = $insights['comm'] ?? [];
+
+        // ── Engagement components ──────────────────────────────────────
+        $completionScore  = null;
+        $activeDaysScore  = null;
+        $collabScore      = null;
+        $wlbScore         = null;
+        $sentimentScore   = null;
+
+        // Task completion (40 pts max)
+        if (($ti['completion_rate'] ?? null) !== null) {
+            $completionScore = min(100, (int) $ti['completion_rate']);
+        }
+
+        // Slack active days (20 pts max) — normalize vs 5 days/week
+        $activeDaysVal = $ci['active_days_count']['value'] ?? null;
+        if ($activeDaysVal !== null) {
+            $activeDaysScore = (int) min(100, round($activeDaysVal / 5 * 100));
+        }
+
+        // Collaboration breadth (20 pts max) — normalize vs 10 collaborators
+        $collabVal = $ci['unique_collaborators_count']['value'] ?? null;
+        if ($collabVal !== null) {
+            $collabScore = (int) min(100, round($collabVal / 10 * 100));
+        }
+
+        // Work-life balance (20 pts max) — after_hours_pct: 0%=100pts, ≥50%=0pts
+        $ahPct = $ci['after_hours_message_pct']['value'] ?? null;
+        if ($ahPct !== null) {
+            $wlbScore = (int) max(0, 100 - round($ahPct * 2));
+        }
+
+        // Sentiment signal (bonus context, 0-100 where 0=very negative, 50=neutral, 100=very positive)
+        $sentimentVal = $ci['message_sentiment_score']['value'] ?? null;
+        if ($sentimentVal !== null) {
+            $sentimentScore = (int) min(100, max(0, round(($sentimentVal + 100) / 2)));
+        }
+
+        // ── Behavioral signals ─────────────────────────────────────────
+        $initiatedVal    = $ci['initiated_conversations_count']['value'] ?? null;
+        $inboundMentions = $ci['inbound_mentions_count']['value'] ?? null;
+        $questionsAsked  = $ci['questions_asked_count']['value'] ?? null;
+        $proactiveStatus = $ci['proactive_status_count']['value'] ?? null;
+        $messageCountVal = $ci['messages_sent_count']['value'] ?? null;
+
+        $behaviorNudge  = 0;
+        $hasChasePattern = false;
+        $initiationRatioPct = null;
+
+        // Initiation ratio: starting conversations = strong engagement signal
+        if ($initiatedVal !== null && $messageCountVal !== null && $messageCountVal > 0) {
+            $initiationRatio = $initiatedVal / $messageCountVal;
+            $initiationRatioPct = (int) round($initiationRatio * 100);
+            if ($initiationRatio >= 0.4) {
+                $behaviorNudge += 5; // strong initiator
+            } elseif ($initiationRatio <= 0.15) {
+                $behaviorNudge -= 3; // mostly passive responder
+            }
+        }
+
+        // Chase pattern: repeatedly tagged by others without self-initiating = negative signal
+        if ($inboundMentions !== null && $initiatedVal !== null && $inboundMentions >= 5 && $initiatedVal <= 2) {
+            $behaviorNudge -= 5;
+            $hasChasePattern = true;
+        }
+
+        // Learner signal: asking questions despite lower completion = active engagement
+        if ($questionsAsked !== null && $questionsAsked >= 3) {
+            $behaviorNudge += 3;
+        }
+
+        // Proactive communication: employee updates team without being asked = positive
+        if ($proactiveStatus !== null && $proactiveStatus >= 3) {
+            $behaviorNudge += 3;
+        }
+
+        $behaviorNudge = max(-8, min(8, $behaviorNudge));
+
+        // Weighted composite score
+        $score = null;
+        $weights = [];
+        if ($completionScore !== null)  $weights[] = ['v' => $completionScore, 'w' => 0.40];
+        if ($activeDaysScore !== null)  $weights[] = ['v' => $activeDaysScore, 'w' => 0.20];
+        if ($collabScore !== null)      $weights[] = ['v' => $collabScore,     'w' => 0.20];
+        if ($wlbScore !== null)         $weights[] = ['v' => $wlbScore,        'w' => 0.20];
+
+        if (!empty($weights)) {
+            $totalWeight = array_sum(array_column($weights, 'w'));
+            $raw = array_sum(array_map(fn($x) => $x['v'] * $x['w'], $weights)) / $totalWeight;
+            $score = (int) round($raw);
+
+            // If sentiment is available, nudge score by ±5 pts
+            if ($sentimentScore !== null) {
+                $nudge = (int) round(($sentimentScore - 50) / 10); // -5 to +5
+                $score = max(0, min(100, $score + $nudge));
+            }
+
+            // Apply behavioral nudge (±8 pts max)
+            $score = max(0, min(100, $score + $behaviorNudge));
+        }
+
+        // ── Engagement level label ─────────────────────────────────────
+        $level = null;
+        if ($score !== null) {
+            $level = match(true) {
+                $score >= 75 => 'Highly Engaged',
+                $score >= 55 => 'Engaged',
+                $score >= 35 => 'Moderate',
+                default       => 'Disengaged',
+            };
+        }
+
+        // ── Attrition risk: count declining metrics ────────────────────
+        $decliningCount = 0;
+
+        // Task completion declining
+        if (($ti['completion_rate'] ?? null) !== null && ($ti['completion_rate_prev'] ?? null) !== null) {
+            if ($ti['completion_rate'] < $ti['completion_rate_prev'] - 10) {
+                $decliningCount++;
+            }
+        }
+
+        // SP velocity declining
+        if (($ti['velocity_sp'] ?? null) !== null && ($ti['velocity_sp_prev'] ?? null) !== null && $ti['velocity_sp_prev'] > 0) {
+            $spTrend = ($ti['velocity_sp'] - $ti['velocity_sp_prev']) / $ti['velocity_sp_prev'] * 100;
+            if ($spTrend < -20) {
+                $decliningCount++;
+            }
+        }
+
+        // Comm signals declining
+        foreach (['messages_sent_count', 'active_days_count', 'unique_collaborators_count'] as $key) {
+            $trend = $ci[$key]['trend_pct'] ?? null;
+            if ($trend !== null && $trend < -20) {
+                $decliningCount++;
+            }
+        }
+
+        // Negative sentiment trend
+        $sentTrend = $ci['message_sentiment_score']['trend_pct'] ?? null;
+        if ($sentTrend !== null && $sentTrend < -30) {
+            $decliningCount++;
+        }
+
+        // Chase pattern (persistent) adds to attrition risk
+        if ($hasChasePattern) {
+            $decliningCount++;
+        }
+
+        $risk = match(true) {
+            $decliningCount >= 4 => 'Elevated',
+            $decliningCount >= 2 => 'Watch',
+            default              => 'Low',
+        };
+
+        return [
+            'score'           => $score,
+            'level'           => $level,
+            'risk'            => $risk,
+            'declining_count' => $decliningCount,
+            'sentiment_score' => $sentimentScore,
+            'components'      => [
+                'completion'  => $completionScore,
+                'active_days' => $activeDaysScore,
+                'collab'      => $collabScore,
+                'wlb'         => $wlbScore,
+            ],
+            'behavioral'      => [
+                'initiated'        => $initiatedVal !== null ? (int) $initiatedVal : null,
+                'inbound_mentions' => $inboundMentions !== null ? (int) $inboundMentions : null,
+                'questions_asked'  => $questionsAsked !== null ? (int) $questionsAsked : null,
+                'proactive_status' => $proactiveStatus !== null ? (int) $proactiveStatus : null,
+                'chase_pattern'    => $hasChasePattern,
+                'initiation_ratio' => $initiationRatioPct,
+            ],
+        ];
     }
 
     private function formatPeriod(?string $period): string

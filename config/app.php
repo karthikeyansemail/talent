@@ -15,6 +15,8 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    'billing_dev_mode' => (bool) env('BILLING_DEV_MODE', false),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment
@@ -124,3 +126,4 @@ return [
     ],
 
 ];
+

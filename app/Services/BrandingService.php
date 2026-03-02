@@ -24,9 +24,9 @@ class BrandingService
 
         // Fall back to global platform settings
         return [
-            'app_name' => PlatformSetting::get('app_name', 'Nalam Compass'),
+            'app_name' => PlatformSetting::get('app_name', 'Nalam Pulse'),
             'app_name_short' => PlatformSetting::get('app_name_short', 'Nalam'),
-            'app_name_accent' => PlatformSetting::get('app_name_accent', 'Compass'),
+            'app_name_accent' => PlatformSetting::get('app_name_accent', 'Pulse'),
             'logo_path' => PlatformSetting::get('app_logo_path'),
         ];
     }

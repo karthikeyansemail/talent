@@ -20,17 +20,32 @@ class MatchProjectResourcesJob implements ShouldQueue
     public int $tries = 2;
     public int $timeout = 300;
 
-    public function __construct(public Project $project) {}
+    public function __construct(
+        public Project $project,
+        public ?array $employeeIds = null,
+    ) {}
 
     public function handle(): void
     {
-        $employees = Employee::where('organization_id', $this->project->organization_id)
-            ->where('is_active', true)
-            ->get();
+        $query = Employee::where('organization_id', $this->project->organization_id)
+            ->where('is_active', true);
+
+        if ($this->employeeIds !== null) {
+            $query->whereIn('id', $this->employeeIds);
+        }
+
+        $employees = $query->get();
 
         if ($employees->isEmpty()) {
             return;
         }
+
+        // Load current project assignments for context
+        $assignments = ProjectResourceMatch::where('is_assigned', true)
+            ->whereIn('employee_id', $employees->pluck('id'))
+            ->with('project:id,name')
+            ->get()
+            ->groupBy('employee_id');
 
         // Gather sprint sheet data as additional context
         $sprintData = ProjectSprintSheet::where('project_id', $this->project->id)
@@ -58,6 +73,11 @@ class MatchProjectResourcesJob implements ShouldQueue
                 'skills_from_resume' => (object)($e->skills_from_resume ?? []),
                 'skills_from_jira' => (object)($e->skills_from_jira ?? []),
                 'combined_skill_profile' => (object)($e->combined_skill_profile ?? []),
+                'current_projects' => ($assignments[$e->id] ?? collect())
+                    ->pluck('project.name')
+                    ->filter()
+                    ->values()
+                    ->toArray(),
             ])->toArray(),
         ];
 

@@ -35,12 +35,9 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Edit Project
     </a>
-    <button type="button" class="action-btn action-primary ai-analyze-btn"
-        data-url="{{ route('projects.findResources', $project) }}"
-        data-status-url="{{ route('projects.matchStatus', $project) }}"
-        data-target="#resourceMatchesContent"
-        data-context="project"
-        id="findResourcesBtn">
+    <button type="button" class="action-btn action-primary"
+        id="findResourcesBtn"
+        onclick="openResourceFilterModal()">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         <span class="ai-btn-text">Find Best Resources</span>
     </button>
@@ -342,14 +339,6 @@
 </div>
 
 <script>
-// Switch to Resource Matches tab when "Find Best Resources" is clicked
-document.getElementById('findResourcesBtn').addEventListener('click', function() {
-    document.querySelectorAll('#projectTabs .tab').forEach(function(t) { t.classList.remove('active'); });
-    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
-    document.getElementById('resourcesTab').classList.add('active');
-    document.getElementById('tab-resources').classList.add('active');
-});
-
 // Document upload drop zone
 (function() {
     var dropZone   = document.getElementById('docDropZone');
@@ -382,5 +371,184 @@ document.getElementById('findResourcesBtn').addEventListener('click', function()
         if (fileInput.files[0]) showFile(fileInput.files[0]);
     });
 })();
+</script>
+{{-- Resource Filter Modal --}}
+<div id="resourceFilterModal" class="modal-overlay" style="display:none;z-index:200">
+    <div class="modal" style="max-width:540px;width:100%">
+        <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+            <span>Configure Resource Search</span>
+            <button type="button" onclick="closeResourceFilterModal()" style="background:none;border:none;font-size:22px;line-height:1;cursor:pointer;color:var(--gray-500);padding:0">&times;</button>
+        </div>
+        <div class="modal-body">
+            {{-- Department filter --}}
+            <div class="form-group" style="margin-bottom:18px">
+                <label style="font-weight:600;font-size:13px;margin-bottom:6px;display:block">
+                    Filter by Departments
+                    <span style="font-weight:400;color:var(--gray-500)">(leave unchecked to include all)</span>
+                </label>
+                @if($departments->isNotEmpty())
+                <div id="deptCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px">
+                    @foreach($departments as $dept)
+                    <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:6px;padding:5px 10px">
+                        <input type="checkbox" class="dept-filter" value="{{ $dept->id }}" onchange="schedulePreview()" style="margin:0">
+                        {{ $dept->name }}
+                    </label>
+                    @endforeach
+                </div>
+                @else
+                <p style="font-size:13px;color:var(--gray-500);margin:0">No departments configured.</p>
+                @endif
+            </div>
+
+            {{-- Skill keywords --}}
+            <div class="form-group" style="margin-bottom:18px">
+                <label style="font-weight:600;font-size:13px;margin-bottom:6px;display:block">Skill Keywords</label>
+                <input type="text" id="skillKeywordsInput" class="form-control"
+                    placeholder="e.g. PHP, Laravel, React"
+                    oninput="schedulePreview()"
+                    style="width:100%">
+                <div style="font-size:12px;color:var(--gray-500);margin-top:4px">
+                    Pre-filled from project required skills. Employees matching ANY keyword are included.
+                </div>
+            </div>
+
+            {{-- Max candidates slider --}}
+            <div class="form-group" style="margin-bottom:18px">
+                <label style="font-weight:600;font-size:13px;margin-bottom:6px;display:block">
+                    Max Candidates to Send to AI: <strong id="maxCandidatesLabel">100</strong>
+                </label>
+                <input type="range" id="maxCandidatesSlider" min="10" max="500" step="10" value="100"
+                    oninput="document.getElementById('maxCandidatesLabel').textContent=this.value; schedulePreview()"
+                    style="width:100%;accent-color:var(--primary)">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray-400)">
+                    <span>10</span><span>500</span>
+                </div>
+            </div>
+
+            {{-- Live preview --}}
+            <div id="resourceFilterPreview" class="alert" style="margin-bottom:0;background:var(--blue-50,#eff6ff);border:1px solid var(--blue-200,#bfdbfe);color:var(--blue-800,#1e40af);border-radius:8px;padding:10px 14px;font-size:13px">
+                <span id="previewText">Calculating...</span>
+            </div>
+        </div>
+        <div class="modal-footer" style="padding:16px 24px;border-top:1px solid var(--gray-100);display:flex;justify-content:flex-end;gap:10px">
+            <button type="button" onclick="closeResourceFilterModal()" class="btn btn-outline">Cancel</button>
+            <button type="button" id="startMatchingBtn" onclick="submitResourceFilter()" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                Start Matching
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+var _rfPreviewTimer = null;
+var _rfCountUrl    = '{{ route('projects.candidateCount', $project) }}';
+var _rfMatchUrl    = '{{ route('projects.findResources', $project) }}';
+var _rfStatusUrl   = '{{ route('projects.matchStatus', $project) }}';
+var _rfDefaultSkills = '{{ implode(', ', $project->required_skills ?? []) }}';
+
+function openResourceFilterModal() {
+    document.getElementById('skillKeywordsInput').value = _rfDefaultSkills;
+    document.getElementById('maxCandidatesSlider').value = 100;
+    document.getElementById('maxCandidatesLabel').textContent = '100';
+    document.querySelectorAll('.dept-filter').forEach(function(cb) { cb.checked = false; });
+    document.getElementById('resourceFilterModal').style.display = 'flex';
+    updateResourceFilterPreview();
+}
+
+function closeResourceFilterModal() {
+    document.getElementById('resourceFilterModal').style.display = 'none';
+}
+
+function schedulePreview() {
+    clearTimeout(_rfPreviewTimer);
+    _rfPreviewTimer = setTimeout(updateResourceFilterPreview, 450);
+}
+
+function buildFilterParams() {
+    var depts = Array.from(document.querySelectorAll('.dept-filter:checked')).map(function(el) { return el.value; });
+    return {
+        departments: depts,
+        skill_keywords: document.getElementById('skillKeywordsInput').value,
+        max_candidates: document.getElementById('maxCandidatesSlider').value,
+    };
+}
+
+function updateResourceFilterPreview() {
+    var params = buildFilterParams();
+    var qs = new URLSearchParams();
+    params.departments.forEach(function(d) { qs.append('departments[]', d); });
+    qs.set('skill_keywords', params.skill_keywords);
+    qs.set('max_candidates', params.max_candidates);
+
+    document.getElementById('previewText').textContent = 'Calculating...';
+
+    fetch(_rfCountUrl + '?' + qs.toString(), { headers: { 'Accept': 'application/json' } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var n = data.count || 0;
+            document.getElementById('previewText').textContent =
+                n + ' employee' + (n !== 1 ? 's' : '') + ' will be sent to AI for matching' +
+                (n === 0 ? ' — try broadening the filters.' : '.');
+            document.getElementById('startMatchingBtn').disabled = (n === 0);
+        })
+        .catch(function() {
+            document.getElementById('previewText').textContent = 'Could not load preview.';
+        });
+}
+
+function submitResourceFilter() {
+    var params = buildFilterParams();
+
+    // Switch to Resource Matches tab
+    document.querySelectorAll('#projectTabs .tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    document.getElementById('resourcesTab').classList.add('active');
+    document.getElementById('tab-resources').classList.add('active');
+
+    closeResourceFilterModal();
+
+    // Proxy through the existing AI analysis button (reuse its progress UI)
+    var btn = document.getElementById('findResourcesBtn');
+    btn.disabled = true;
+    var btnText = btn.querySelector('.ai-btn-text');
+    btnText.textContent = 'Processing...';
+    btn.classList.add('analyzing');
+
+    var progressEl = showAiProgress(btn, 'project', '#resourceMatchesContent');
+    var since = new Date().toISOString();
+
+    fetch(_rfMatchUrl, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': getCSRFToken(),
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    })
+    .then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.message || 'Error'); });
+        return r.json();
+    })
+    .then(function(data) {
+        if (data.status === 'queued') {
+            simulateAiProgress(progressEl, _rfStatusUrl, since, btn, '#resourceMatchesContent', 'project', 'Find Best Resources');
+        } else {
+            resetAiButton(btn, 'Find Best Resources');
+            hideAiProgress(progressEl);
+        }
+    })
+    .catch(function(err) {
+        resetAiButton(btn, 'Find Best Resources');
+        hideAiProgress(progressEl);
+        showAiFlashError(err.message || 'Failed to start matching. Please try again.');
+    });
+}
+
+// Close modal on overlay click
+document.getElementById('resourceFilterModal').addEventListener('click', function(e) {
+    if (e.target === this) closeResourceFilterModal();
+});
 </script>
 @endsection

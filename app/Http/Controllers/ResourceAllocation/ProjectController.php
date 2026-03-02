@@ -4,6 +4,8 @@ namespace App\Http\Controllers\ResourceAllocation;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\MatchProjectResourcesJob;
+use App\Models\Department;
+use App\Models\Employee;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\ProjectSprintSheet;
@@ -19,6 +21,12 @@ class ProjectController extends Controller
 {
     public function index(Request $request)
     {
+        $org = Auth::user()->currentOrganization();
+        if (!$org->canUse('resource_allocation')) {
+            return redirect()->route('dashboard')
+                ->with('error', 'Resource Allocation is not available on the Free plan. Upgrade to Cloud Enterprise to access this feature.');
+        }
+
         $orgId = Auth::user()->currentOrganizationId();
         $query = Project::where('organization_id', $orgId)->withCount('resourceMatches');
 
@@ -70,7 +78,10 @@ class ProjectController extends Controller
     {
         $this->authorizeOrg($project);
         $project->load(['creator', 'resourceMatches.employee.department', 'sprintSheets', 'documents']);
-        return view('projects.show', compact('project'));
+        $departments = Department::where('organization_id', $project->organization_id)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        return view('projects.show', compact('project', 'departments'));
     }
 
     public function edit(Project $project)
@@ -113,19 +124,47 @@ class ProjectController extends Controller
         return redirect()->route('projects.index')->with('success', 'Project deleted.');
     }
 
-    public function findResources(Project $project)
+    public function findResources(Request $request, Project $project)
     {
         $this->authorizeOrg($project);
-        MatchProjectResourcesJob::dispatch($project);
 
-        if (request()->expectsJson()) {
+        $deptIds      = array_filter((array) $request->input('departments', []));
+        $skillKeywords = array_filter(array_map('trim', explode(',', $request->input('skill_keywords', ''))));
+        $maxCount     = min(max((int) $request->input('max_candidates', 100), 10), 500);
+
+        $employeeIds = $this->preFilterEmployees($project, $deptIds, $skillKeywords, $maxCount);
+
+        if (empty($employeeIds)) {
+            if ($request->expectsJson()) {
+                return response()->json(['status' => 'error', 'message' => 'No matching employees found. Try broadening the filter criteria.'], 422);
+            }
+            return back()->with('error', 'No matching employees found. Try broadening the filter criteria.');
+        }
+
+        MatchProjectResourcesJob::dispatch($project, $employeeIds);
+
+        if ($request->expectsJson()) {
             return response()->json([
-                'status' => 'queued',
-                'project_id' => $project->id,
+                'status'         => 'queued',
+                'project_id'     => $project->id,
+                'employee_count' => count($employeeIds),
             ]);
         }
 
-        return back()->with('success', 'Resource matching queued. Results will appear shortly.');
+        return back()->with('success', 'Resource matching queued for ' . count($employeeIds) . ' pre-filtered candidates.');
+    }
+
+    public function candidateCount(Request $request, Project $project)
+    {
+        $this->authorizeOrg($project);
+
+        $deptIds       = array_filter((array) $request->input('departments', []));
+        $skillKeywords = array_filter(array_map('trim', explode(',', $request->input('skill_keywords', ''))));
+        $maxCount      = min(max((int) $request->input('max_candidates', 100), 10), 500);
+
+        $ids = $this->preFilterEmployees($project, $deptIds, $skillKeywords, $maxCount);
+
+        return response()->json(['count' => count($ids)]);
     }
 
     public function matchStatus(Project $project)
@@ -409,6 +448,56 @@ class ProjectController extends Controller
             'completed_story_points' => $completedPoints,
             'sprints' => $sprints,
         ];
+    }
+
+    /**
+     * Pre-filter employees by department and skill keywords, then rank by
+     * how many of the project's required_skills appear in their profiles.
+     * Returns up to $maxCount employee IDs, best-matching first.
+     */
+    private function preFilterEmployees(Project $project, array $deptIds, array $skillKeywords, int $maxCount): array
+    {
+        $query = Employee::where('organization_id', $project->organization_id)
+            ->where('is_active', true);
+
+        if (!empty($deptIds)) {
+            $query->whereIn('department_id', $deptIds);
+        }
+
+        if (!empty($skillKeywords)) {
+            $query->where(function ($q) use ($skillKeywords) {
+                foreach ($skillKeywords as $keyword) {
+                    $like = '%' . str_replace(['%', '_'], ['\%', '\_'], strtolower($keyword)) . '%';
+                    $q->orWhereRaw('LOWER(skills_from_resume) LIKE ?', [$like])
+                      ->orWhereRaw('LOWER(skills_from_jira) LIKE ?', [$like])
+                      ->orWhereRaw('LOWER(combined_skill_profile) LIKE ?', [$like]);
+                }
+            });
+        }
+
+        $employees = $query->get(['id', 'skills_from_resume', 'skills_from_jira', 'combined_skill_profile']);
+
+        // Rank in PHP by how many project required_skills appear in each employee's combined text
+        $projectSkills = array_map('strtolower', $project->required_skills ?? []);
+
+        $ranked = $employees->map(function ($emp) use ($projectSkills) {
+            $allText = strtolower(implode(' ', [
+                json_encode($emp->skills_from_resume ?? []),
+                json_encode($emp->skills_from_jira ?? []),
+                json_encode($emp->combined_skill_profile ?? []),
+            ]));
+
+            $matchCount = 0;
+            foreach ($projectSkills as $skill) {
+                if (str_contains($allText, $skill)) {
+                    $matchCount++;
+                }
+            }
+
+            return ['id' => $emp->id, 'match_count' => $matchCount];
+        })->sortByDesc('match_count')->take($maxCount);
+
+        return $ranked->pluck('id')->toArray();
     }
 
     private function authorizeOrg(Project $project): void

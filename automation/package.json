@@ -1,0 +1,21 @@
+{
+  "name": "talent-automation",
+  "version": "1.0.0",
+  "description": "Telegram Remote Development Bridge + Playwright Automation for Talent Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "node server/index.mjs",
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:ui": "npx playwright test --ui",
+    "screenshot": "node playwright/capture.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "node-telegram-bot-api": "^0.66.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1"
+  }
+}

@@ -94,7 +94,17 @@ class CandidateController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $validated['organization_id'] = Auth::user()->currentOrganizationId();
+        $orgId = Auth::user()->currentOrganizationId();
+        $org = Auth::user()->currentOrganization();
+        $candidateLimit = $org->candidateLimit();
+        if ($candidateLimit !== null) {
+            $count = Candidate::where('organization_id', $orgId)->count();
+            if ($count >= $candidateLimit) {
+                return back()->with('error', "Your Free plan allows up to {$candidateLimit} candidates. Upgrade to Cloud Enterprise for unlimited candidates.");
+            }
+        }
+
+        $validated['organization_id'] = $orgId;
         $validated['skills'] = $request->skills
             ? array_map('trim', explode(',', $request->skills))
             : [];

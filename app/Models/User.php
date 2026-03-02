@@ -47,8 +47,17 @@ class User extends Authenticatable
 
     public function currentOrganizationId(): ?int
     {
-        if ($this->isSuperAdmin() && session()->has('viewing_organization_id')) {
-            return (int) session('viewing_organization_id');
+        if ($this->isSuperAdmin()) {
+            if (session()->has('viewing_organization_id')) {
+                return (int) session('viewing_organization_id');
+            }
+            // Auto-select the first active org so super admin always has context
+            $firstOrg = Organization::where('is_active', true)->orderBy('id')->first();
+            if ($firstOrg) {
+                session(['viewing_organization_id' => $firstOrg->id]);
+                return $firstOrg->id;
+            }
+            return null;
         }
         return $this->organization_id;
     }
@@ -56,7 +65,7 @@ class User extends Authenticatable
     public function currentOrganization(): ?Organization
     {
         $currentOrgId = $this->currentOrganizationId();
-        if ($currentOrgId === $this->organization_id) {
+        if ($currentOrgId !== null && $currentOrgId === $this->organization_id) {
             return $this->organization;
         }
         return Organization::find($currentOrgId);

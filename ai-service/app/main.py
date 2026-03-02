@@ -16,6 +16,7 @@ from app.models.requests import (
     ResumeProfileRequest,
     ProjectParsingRequest,
     SignalAnalysisRequest,
+    WorkPulseAnalyzeRequest,
 )
 from app.models.responses import (
     ResumeAnalysisResponse,
@@ -26,6 +27,7 @@ from app.models.responses import (
     ResumeProfileResponse,
     ProjectParsingResponse,
     SignalAnalysisResponse,
+    WorkPulseInsightResponse,
 )
 from app.services.resume_analyzer import analyze_resume, extract_resume_signals
 from app.services.jira_signal_extractor import extract_jira_signals
@@ -34,6 +36,7 @@ from app.services.job_parser import parse_job_description
 from app.services.resume_profile_parser import parse_resume_profile
 from app.services.project_parser import parse_project_requirements
 from app.services.signal_analyzer import analyze_signals
+from app.services.work_pulse_analyzer import analyze_work_pulse
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -225,6 +228,27 @@ async def analyze_signals_endpoint(request: SignalAnalysisRequest) -> SignalAnal
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Unhandled error in /analyze-signals")
+        raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+@app.post(
+    "/work-pulse/analyze",
+    response_model=WorkPulseInsightResponse,
+    tags=["work-pulse"],
+    summary="AI qualitative analysis of employee work patterns",
+)
+async def analyze_work_pulse_endpoint(request: WorkPulseAnalyzeRequest) -> WorkPulseInsightResponse:
+    """Derive 5 qualitative work dimensions from an employee's task history.
+
+    Returns direction labels (Strong / Solid / Developing / Inconsistent) and a
+    management-ready narrative — no numerical scores.
+    """
+    try:
+        return await analyze_work_pulse(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /work-pulse/analyze")
         raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
 
 

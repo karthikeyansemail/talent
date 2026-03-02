@@ -56,6 +56,51 @@ class AiServiceClient
         return $this->call('/analyze-signals', $data, $orgId);
     }
 
+    public function analyzeWorkPulse(\App\Models\Employee $employee): array
+    {
+        $tasks = $employee->tasks->map(fn($t) => [
+            'summary'      => $t->title ?? '',
+            'type'         => $t->task_type ?? 'Task',
+            'status'       => $t->status ?? '',
+            'priority'     => $t->priority ?? 'Medium',
+            'story_points' => $t->story_points,
+            'created_at'   => $t->source_created_at?->toDateString() ?? '',
+            'completed_at' => $t->completed_at?->toDateString(),
+            'labels'       => $t->labels ?? [],
+        ])->values()->toArray();
+
+        $commSignals = $employee->relationLoaded('signals')
+            ? $employee->signals->map(fn($s) => [
+                'source'       => $s->source_type,
+                'metric_key'   => $s->metric_key,
+                'metric_value' => (float) $s->metric_value,
+                'metric_unit'  => $s->metric_unit ?? '',
+                'period'       => $s->period,
+            ])->values()->toArray()
+            : [];
+
+        $sprintRecords = $employee->relationLoaded('sprintSheets')
+            ? $employee->sprintSheets->map(fn($s) => [
+                'sprint_name'      => $s->sprint_name,
+                'planned_points'   => $s->planned_points,
+                'completed_points' => $s->completed_points,
+                'tasks_planned'    => $s->tasks_planned,
+                'tasks_completed'  => $s->tasks_completed,
+                'start_date'       => $s->start_date?->toDateString() ?? '',
+                'end_date'         => $s->end_date?->toDateString() ?? '',
+            ])->values()->toArray()
+            : [];
+
+        return $this->call('/work-pulse/analyze', [
+            'employee_name'  => $employee->full_name,
+            'designation'    => $employee->designation ?? '',
+            'department'     => $employee->department?->name ?? '',
+            'tasks'          => $tasks,
+            'comm_signals'   => $commSignals,
+            'sprint_records' => $sprintRecords,
+        ], $employee->organization_id);
+    }
+
     public function healthCheck(): array
     {
         try {

@@ -1,0 +1,5 @@
+# Protect fallback log from public access
+<Files "chat-fallback.log">
+    Order Allow,Deny
+    Deny from all
+</Files>

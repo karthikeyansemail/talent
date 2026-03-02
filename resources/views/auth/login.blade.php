@@ -2,7 +2,7 @@
 @section('title', 'Sign In')
 @section('content')
 <h1 style="text-align:center">Welcome back</h1>
-<p style="text-align:center">Sign in to your {{ $branding['app_name'] ?? 'Nalam Compass' }} account</p>
+<p style="text-align:center">Sign in to your {{ $branding['app_name'] ?? 'Nalam Pulse' }} account</p>
 <form method="POST" action="{{ url('/login') }}">
     @csrf
     <div class="form-group">
@@ -20,6 +20,7 @@
     </div>
     <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
         <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" name="remember" style="accent-color:var(--primary)"> Remember me</label>
+        <a href="{{ url('/forgot-password') }}" style="font-size:13px;color:var(--primary);text-decoration:none">Forgot password?</a>
     </div>
     <button type="submit" class="btn btn-primary btn-lg w-full" style="margin-top:8px">Sign in</button>
 </form>

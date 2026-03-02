@@ -57,6 +57,13 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
 Route::post('/register', [RegisterController::class, 'register']);
 
+// Password reset
+use App\Http\Controllers\Auth\ForgotPasswordController;
+Route::get('/forgot-password', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
+Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink'])->name('password.email');
+Route::get('/reset-password/{token}', [ForgotPasswordController::class, 'showResetForm'])->name('password.reset');
+Route::post('/reset-password', [ForgotPasswordController::class, 'reset'])->name('password.update');
+
 // Authenticated routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/', fn() => redirect('/dashboard'));
@@ -129,6 +136,7 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('projects', ProjectController::class);
         Route::post('projects/{project}/find-resources', [ProjectController::class, 'findResources'])->name('projects.findResources');
         Route::get('projects/{project}/match-status', [ProjectController::class, 'matchStatus'])->name('projects.matchStatus');
+        Route::get('projects/{project}/candidate-count', [ProjectController::class, 'candidateCount'])->name('projects.candidateCount');
         Route::post('projects/{project}/sprint-sheets', [ProjectController::class, 'uploadSprintSheets'])->name('projects.sprintSheets.upload');
         Route::delete('projects/{project}/sprint-sheets/{sprintSheet}', [ProjectController::class, 'deleteSprintSheet'])->name('projects.sprintSheets.destroy');
         Route::post('projects/{project}/documents', [ProjectController::class, 'uploadDocument'])->name('projects.documents.upload');

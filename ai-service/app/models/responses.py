@@ -304,3 +304,29 @@ class SignalAnalysisResponse(BaseModel):
     signal_insights: list[str] = Field(
         default_factory=list, description="Objective observations about the data"
     )
+
+
+class WorkPulseDimension(BaseModel):
+    """A single qualitative work dimension derived from task history."""
+
+    name: str = Field(..., description="Dimension name, e.g. 'Complexity Handling'")
+    direction: str = Field(
+        ..., description="Qualitative label: Strong, Solid, Developing, or Inconsistent"
+    )
+    description: str = Field(
+        ..., description="1-2 factual sentences with evidence from task data"
+    )
+
+
+class WorkPulseInsightResponse(BaseModel):
+    """AI-derived qualitative work pulse analysis for an employee."""
+
+    dimensions: list[WorkPulseDimension] = Field(
+        ..., description="5 qualitative work dimensions with direction labels"
+    )
+    management_narrative: str = Field(
+        ..., description="2-3 sentence narrative suitable for a performance conversation"
+    )
+    task_summary: str = Field(
+        default="", description="Brief statement of what data was analyzed"
+    )

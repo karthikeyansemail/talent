@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'Signal Configuration')
-@section('page-title', 'Signal Configuration')
+@section('title', 'Work Pulse — Data Sources')
+@section('page-title', 'Work Pulse — Data Sources')
 @section('content')
 <div class="page-header">
-    <h1>Signal Configuration</h1>
+    <h1>Work Pulse — Data Sources</h1>
     <a href="{{ route('intelligence.dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
 </div>
 
