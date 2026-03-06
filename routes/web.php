@@ -34,6 +34,8 @@ use App\Http\Controllers\Settings\SsoConfigController;
 use App\Http\Controllers\Settings\BillingController;
 use App\Http\Controllers\WebhookController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Hiring\InterviewController;
+use App\Http\Controllers\Hiring\InterviewApiController;
 
 // Payment webhooks — outside auth (Stripe/Razorpay POST without session, verified by signature)
 Route::post('/webhooks/stripe',    [WebhookController::class, 'stripe'])->name('webhooks.stripe');
@@ -74,8 +76,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
-    // Hiring (hr_manager, hiring_manager, management, org_admin, super_admin)
-    Route::middleware(['role:hr_manager,hiring_manager,management,org_admin,super_admin'])->group(function () {
+    // Hiring (hr_manager, hiring_manager, org_admin, super_admin)
+    Route::middleware(['role:hr_manager,hiring_manager,org_admin,super_admin'])->group(function () {
         // AI parsing routes (must be before resource routes to avoid conflict)
         Route::post('jobs/parse-document', [JobParserController::class, 'parse'])->name('jobs.parseDocument');
         Route::post('candidates/parse-resume', [CandidateParserController::class, 'parse'])->name('candidates.parseResume');
@@ -111,8 +113,39 @@ Route::middleware(['auth'])->group(function () {
         Route::get('hiring/reports', [HiringReportsController::class, 'index'])->name('hiring.reports');
     });
 
-    // Resource Allocation (resource_manager, management, org_admin, super_admin)
-    Route::middleware(['role:resource_manager,management,org_admin,super_admin'])->group(function () {
+    // Interview assignment (HR/admin only — must be before interviews/{session} to avoid route conflict)
+    Route::middleware(['role:hr_manager,hiring_manager,org_admin,super_admin'])->group(function () {
+        Route::get('interviews/assign/create', [InterviewController::class, 'create'])->name('interviews.create');
+        Route::post('interviews/assign', [InterviewController::class, 'store'])->name('interviews.store');
+        Route::get('interviews/assign/search-employees', [InterviewController::class, 'searchEmployees'])->name('interviews.searchEmployees');
+        Route::delete('interviews/{session}', [InterviewController::class, 'destroy'])->name('interviews.destroy');
+    });
+
+    // Live Interviews (interviewer + hiring roles)
+    Route::middleware(['role:interviewer,hr_manager,hiring_manager,org_admin,super_admin'])->group(function () {
+        Route::get('interviews', [InterviewController::class, 'index'])->name('interviews.index');
+        Route::get('interviews/{session}', [InterviewController::class, 'show'])->name('interviews.show');
+        Route::post('interviews/{session}/start', [InterviewController::class, 'start'])->name('interviews.start');
+        Route::post('interviews/{session}/end', [InterviewController::class, 'end'])->name('interviews.end');
+        Route::post('interviews/{session}/complete', [InterviewController::class, 'complete'])->name('interviews.complete');
+        Route::post('interviews/{session}/revert-outcome', [InterviewController::class, 'revertOutcome'])->name('interviews.revertOutcome');
+        Route::post('interviews/{session}/reopen', [InterviewController::class, 'reopen'])->name('interviews.reopen');
+        Route::post('interviews/{session}/generate-summary', [InterviewController::class, 'generateSummary'])->name('interviews.generateSummary');
+        Route::get('interviews/{session}/summary-status', [InterviewController::class, 'summaryStatus'])->name('interviews.summaryStatus');
+        Route::put('interviews/{session}/manual-summary', [InterviewController::class, 'saveManualSummary'])->name('interviews.saveManualSummary');
+        Route::get('interviews/{session}/summary', [InterviewController::class, 'summary'])->name('interviews.summary');
+
+        // AJAX API for live session
+        Route::post('interviews/{session}/transcript', [InterviewApiController::class, 'storeTranscript'])->name('interviews.api.transcript');
+        Route::post('interviews/{session}/generate-questions', [InterviewApiController::class, 'generateQuestions'])->name('interviews.api.generateQuestions');
+        Route::post('interviews/{session}/evaluate-answer', [InterviewApiController::class, 'evaluateAnswer'])->name('interviews.api.evaluateAnswer');
+        Route::put('interviews/{session}/questions/{question}/status', [InterviewApiController::class, 'updateQuestionStatus'])->name('interviews.api.questionStatus');
+        Route::get('interviews/{session}/state', [InterviewApiController::class, 'sessionState'])->name('interviews.api.state');
+        Route::put('interviews/{session}/notes', [InterviewApiController::class, 'updateNotes'])->name('interviews.api.notes');
+    });
+
+    // Resource Allocation (resource_manager, org_admin, super_admin)
+    Route::middleware(['role:resource_manager,org_admin,super_admin'])->group(function () {
         // Employee import routes (must be before resource route)
         Route::get('employees/import', [EmployeeImportController::class, 'showImport'])->name('employees.import');
         Route::post('employees/import/upload', [EmployeeImportController::class, 'uploadSpreadsheet'])->name('employees.import.upload');
@@ -261,8 +294,8 @@ Route::middleware(['auth'])->group(function () {
         Route::put('sso/{provider}', [SsoConfigController::class, 'update'])->name('sso.update');
     });
 
-    // Intelligence (premium feature, resource_manager, management, org_admin, super_admin)
-    Route::middleware(['role:resource_manager,management,org_admin,super_admin', 'premium'])
+    // Intelligence (premium feature, resource_manager, org_admin, super_admin)
+    Route::middleware(['role:resource_manager,org_admin,super_admin', 'premium'])
         ->prefix('intelligence')
         ->name('intelligence.')
         ->group(function () {

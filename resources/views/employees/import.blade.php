@@ -122,7 +122,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                 <p>No Zoho People connection configured</p>
                 <p class="empty-hint">
-                    @if(in_array(auth()->user()->role, ['org_admin', 'super_admin']))
+                    @if(auth()->user()->hasAnyRole(['org_admin', 'super_admin']))
                     <a href="{{ route('settings.integrations.index') }}">Configure in Settings &rarr; Integrations</a>
                     @else
                     Ask your organization admin to set up the Zoho People integration

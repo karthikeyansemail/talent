@@ -52,6 +52,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize AI analysis AJAX buttons
     initAiAnalysisButtons();
+
+    // Initialize interview summary AI generation + manual summary
+    initInterviewSummaryAi();
+
+    // Initialize interview completed filter tabs (client-side)
+    initInterviewFilterTabs();
+
+    // Initialize interview scheduling modal (triggered from stage changes)
+    initInterviewSchedulingModal();
 });
 
 // Modal
@@ -177,6 +186,21 @@ function updateStageInline(select) {
         // Update class for color
         select.className = 'stage-select stage-' + newStage;
         select.dataset.original = newStage;
+
+        // If the new stage is an interview stage, open the scheduling modal
+        var interviewStages = ['hr_screening', 'technical_round_1', 'technical_round_2'];
+        if (interviewStages.indexOf(newStage) !== -1 && document.getElementById('scheduleInterviewModal')) {
+            var urlParts = url.split('/');
+            var appIdx = urlParts.indexOf('applications');
+            var appId = appIdx !== -1 ? urlParts[appIdx + 1] : '';
+            var row = select.closest('tr');
+            var candidateName = '';
+            if (row) {
+                var link = row.querySelector('td a');
+                if (link) candidateName = link.textContent.trim();
+            }
+            openScheduleInterviewModal(newStage, appId, candidateName);
+        }
     })
     .catch(function() {
         // Revert on error
@@ -1497,23 +1521,34 @@ function initStarRatingPicker() {
 // Expandable Rows (Job Show - Candidates Tab)
 // ========================================================================
 function initExpandableRows() {
+    // Arrow button clicks
     document.querySelectorAll('.expand-toggle').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var targetId = this.getAttribute('data-target');
-            var targetRow = document.getElementById(targetId);
-            if (!targetRow) return;
-
-            var isExpanded = targetRow.style.display !== 'none';
-            targetRow.style.display = isExpanded ? 'none' : 'table-row';
-            this.classList.toggle('expanded', !isExpanded);
-
-            // Update button text
-            var textNode = this.lastChild;
-            if (textNode && textNode.nodeType === 3) {
-                textNode.textContent = isExpanded ? ' Expand' : ' Collapse';
-            }
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleExpandRow(this);
         });
     });
+
+    // Clickable row — entire row toggles expand
+    document.querySelectorAll('tr[data-expand-target]').forEach(function(row) {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function(e) {
+            // Don't toggle if clicking a link or button inside the row
+            if (e.target.closest('a, button, input, select')) return;
+            var btn = this.querySelector('.expand-toggle');
+            if (btn) toggleExpandRow(btn);
+        });
+    });
+}
+
+function toggleExpandRow(btn) {
+    var targetId = btn.getAttribute('data-target');
+    var targetRow = document.getElementById(targetId);
+    if (!targetRow) return;
+
+    var isExpanded = targetRow.style.display !== 'none';
+    targetRow.style.display = isExpanded ? 'none' : 'table-row';
+    btn.classList.toggle('expanded', !isExpanded);
 }
 
 // ========================================================================
@@ -2121,4 +2156,461 @@ function initBulkApplyUpload() {
             showAiFlashError(err.message || 'Network error. Please try again.');
         });
     });
+}
+
+/* ===================================================================
+   INTERVIEW SUMMARY — AI Generate + Progress Bar + Manual Summary
+   =================================================================== */
+
+var IR_SUMMARY_PHASES = [
+    { pct: 10, text: 'Preparing transcript data...', delay: 0 },
+    { pct: 25, text: 'Analyzing conversation flow...', delay: 3000 },
+    { pct: 45, text: 'Evaluating candidate responses...', delay: 7000 },
+    { pct: 60, text: 'Assessing technical depth...', delay: 12000 },
+    { pct: 75, text: 'Identifying strengths & concerns...', delay: 18000 },
+    { pct: 88, text: 'Generating hiring narrative...', delay: 25000 },
+];
+
+function initInterviewSummaryAi() {
+    var section = document.getElementById('ir-ai-summary-section');
+    if (!section) return;
+
+    var generateBtn = document.getElementById('btn-generate-summary');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', function() {
+            startInterviewSummaryGeneration(section);
+        });
+    }
+
+    initManualSummaryAutosave();
+}
+
+function startInterviewSummaryGeneration(section) {
+    var generateUrl = section.dataset.generateUrl;
+    var statusUrl = section.dataset.statusUrl;
+    var csrf = section.dataset.csrf;
+
+    var placeholder = document.getElementById('ir-ai-placeholder');
+    var progressEl = document.getElementById('ir-ai-progress');
+    var btn = document.getElementById('btn-generate-summary');
+
+    if (btn) btn.disabled = true;
+
+    // POST to trigger generation
+    fetch(generateUrl, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrf,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.status === 'queued') {
+            // Hide placeholder, show progress bar
+            if (placeholder) placeholder.style.display = 'none';
+            if (progressEl) progressEl.style.display = 'block';
+
+            // Start simulated progress + polling
+            simulateInterviewSummaryProgress(statusUrl, csrf);
+        } else {
+            if (btn) btn.disabled = false;
+            showAiFlashError(data.error || 'Failed to start AI summary generation.');
+        }
+    })
+    .catch(function() {
+        if (btn) btn.disabled = false;
+        showAiFlashError('Network error. Please try again.');
+    });
+}
+
+function simulateInterviewSummaryProgress(statusUrl, csrf) {
+    var percentEl = document.getElementById('ir-ai-progress-percent');
+    var fillEl = document.getElementById('ir-ai-progress-fill');
+    var phaseEl = document.getElementById('ir-ai-progress-phase');
+    var progressCard = document.getElementById('ir-ai-progress');
+
+    var completed = false;
+    var phaseTimers = [];
+    var pollStart = Date.now();
+    var maxPollTime = 180000; // 3 minutes
+
+    // Schedule phase animations
+    IR_SUMMARY_PHASES.forEach(function(phase) {
+        var t = setTimeout(function() {
+            if (completed) return;
+            if (percentEl) percentEl.textContent = phase.pct + '%';
+            if (fillEl) fillEl.style.width = phase.pct + '%';
+            if (phaseEl) phaseEl.textContent = phase.text;
+        }, phase.delay);
+        phaseTimers.push(t);
+    });
+
+    // Poll every 3 seconds
+    var pollTimer = setInterval(function() {
+        if (completed) return;
+
+        // Timeout
+        if (Date.now() - pollStart > maxPollTime) {
+            completed = true;
+            clearInterval(pollTimer);
+            phaseTimers.forEach(clearTimeout);
+            showInterviewSummaryError('Analysis is taking longer than expected. Please refresh the page.');
+            return;
+        }
+
+        fetch(statusUrl, {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (completed) return;
+
+            if (data.status === 'completed') {
+                completed = true;
+                clearInterval(pollTimer);
+                phaseTimers.forEach(clearTimeout);
+
+                // Animate to 100%
+                if (percentEl) percentEl.textContent = '100%';
+                if (fillEl) fillEl.style.width = '100%';
+                if (phaseEl) phaseEl.textContent = 'Complete!';
+
+                // Reload page to show full results
+                setTimeout(function() {
+                    window.location.reload();
+                }, 800);
+            } else if (data.status === 'failed') {
+                completed = true;
+                clearInterval(pollTimer);
+                phaseTimers.forEach(clearTimeout);
+                showInterviewSummaryError(data.message || 'AI summary generation failed. You can retry or write a manual summary.');
+            }
+        })
+        .catch(function() {
+            // Silently ignore poll errors, will retry
+        });
+    }, 3000);
+}
+
+function showInterviewSummaryError(message) {
+    var progressCard = document.getElementById('ir-ai-progress');
+    var placeholder = document.getElementById('ir-ai-placeholder');
+
+    if (progressCard) progressCard.style.display = 'none';
+    if (placeholder) {
+        placeholder.style.display = 'block';
+        placeholder.innerHTML =
+            '<div class="card-body" style="text-align:center; padding:40px;">' +
+                '<svg width="40" height="40" fill="none" stroke="var(--danger)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 16px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' +
+                '<p style="font-weight:500; margin-bottom:8px; color:var(--danger);">AI Summary Generation Failed</p>' +
+                '<p class="text-muted" style="font-size:13px; margin-bottom:16px;">' + message + '</p>' +
+                '<button type="button" id="btn-generate-summary" class="btn btn-primary" style="font-size:15px; padding:10px 28px;">' +
+                    'Retry AI Summary' +
+                '</button>' +
+            '</div>';
+
+        // Re-bind the retry button
+        var retryBtn = placeholder.querySelector('#btn-generate-summary');
+        if (retryBtn) {
+            retryBtn.addEventListener('click', function() {
+                var section = document.getElementById('ir-ai-summary-section');
+                if (section) startInterviewSummaryGeneration(section);
+            });
+        }
+    }
+}
+
+/* --- Manual Summary Auto-save --- */
+
+function initManualSummaryAutosave() {
+    var textarea = document.getElementById('ir-manual-summary');
+    if (!textarea) return;
+
+    var saveBtn = document.getElementById('btn-save-manual-summary');
+    var statusEl = document.getElementById('ir-manual-save-status');
+    var saveTimer = null;
+
+    function saveManualSummary() {
+        var url = textarea.dataset.url;
+        var csrf = textarea.dataset.csrf;
+        var text = textarea.value.trim();
+
+        if (statusEl) statusEl.textContent = 'Saving...';
+        if (saveBtn) saveBtn.disabled = true;
+
+        fetch(url, {
+            method: 'PUT',
+            headers: {
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ manual_summary: text })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'ok') {
+                if (statusEl) statusEl.textContent = 'Saved';
+                setTimeout(function() {
+                    if (statusEl) statusEl.textContent = '';
+                }, 2000);
+            } else {
+                if (statusEl) { statusEl.textContent = 'Save failed'; statusEl.style.color = 'var(--danger)'; }
+            }
+            if (saveBtn) saveBtn.disabled = false;
+        })
+        .catch(function() {
+            if (statusEl) { statusEl.textContent = 'Save failed'; statusEl.style.color = 'var(--danger)'; }
+            if (saveBtn) saveBtn.disabled = false;
+        });
+    }
+
+    // Auto-save on typing with 2s debounce
+    textarea.addEventListener('input', function() {
+        if (saveTimer) clearTimeout(saveTimer);
+        if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; }
+        saveTimer = setTimeout(saveManualSummary, 2000);
+    });
+
+    // Save button click
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function() {
+            if (saveTimer) clearTimeout(saveTimer);
+            saveManualSummary();
+        });
+    }
+}
+
+/* ===================================================================
+   INTERVIEW INDEX — Client-side Completed Filter Tabs
+   =================================================================== */
+
+function initInterviewFilterTabs() {
+    var tabsContainer = document.getElementById('ir-filter-tabs');
+    if (!tabsContainer) return;
+
+    var table = document.getElementById('ir-completed-table');
+    if (!table) return;
+
+    var rows = table.querySelectorAll('tbody tr[data-outcome]');
+    var noMatch = document.getElementById('ir-no-match');
+
+    // Compute counts once on load
+    var counts = { all: rows.length, advanced: 0, waitlisted: 0, rejected: 0, pending: 0 };
+    rows.forEach(function(row) {
+        var outcome = row.dataset.outcome;
+        if (counts[outcome] !== undefined) counts[outcome]++;
+    });
+
+    // Update count badges
+    tabsContainer.querySelectorAll('.ir-filter-count').forEach(function(span) {
+        var key = span.dataset.count;
+        if (counts[key] !== undefined) span.textContent = counts[key];
+    });
+
+    // Tab click handler
+    tabsContainer.querySelectorAll('.ir-outcome-filter').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var filter = this.dataset.filter;
+
+            // Update active tab
+            tabsContainer.querySelectorAll('.ir-outcome-filter').forEach(function(t) {
+                t.classList.remove('ir-outcome-filter--active');
+            });
+            this.classList.add('ir-outcome-filter--active');
+
+            // Filter rows
+            var visibleCount = 0;
+            rows.forEach(function(row) {
+                var show = filter === 'all' || row.dataset.outcome === filter;
+                row.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+
+            // Show/hide empty state
+            if (noMatch) {
+                noMatch.style.display = visibleCount === 0 ? 'block' : 'none';
+            }
+            table.style.display = visibleCount === 0 ? 'none' : '';
+        });
+    });
+}
+
+// ============================================================
+// Interview Scheduling Modal (triggered from stage changes)
+// ============================================================
+
+var SIM_INTERVIEW_STAGES = ['hr_screening', 'technical_round_1', 'technical_round_2'];
+var SIM_STAGE_LABELS = {
+    'hr_screening': 'HR Screening',
+    'technical_round_1': 'Technical Round 1',
+    'technical_round_2': 'Technical Round 2',
+};
+
+function initInterviewSchedulingModal() {
+    var modal = document.getElementById('scheduleInterviewModal');
+    if (!modal) return;
+
+    initSimEmployeeSearch();
+
+    // Reset form when modal closes (via overlay click)
+    var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+            if (m.attributeName === 'class' && !modal.classList.contains('active')) {
+                resetScheduleInterviewModal();
+            }
+        });
+    });
+    observer.observe(modal, { attributes: true });
+
+    // Intercept application show page stage form
+    var appStageForm = document.getElementById('appStageForm');
+    if (appStageForm) {
+        appStageForm.addEventListener('submit', function(e) {
+            var select = document.getElementById('appStageSelect');
+            if (!select) return;
+            var newStage = select.value;
+
+            if (SIM_INTERVIEW_STAGES.indexOf(newStage) === -1) return; // let normal POST happen
+
+            e.preventDefault();
+
+            var url = appStageForm.dataset.updateUrl;
+            var appId = appStageForm.dataset.applicationId;
+            var candidateName = appStageForm.dataset.candidateName;
+            var stageNotes = appStageForm.querySelector('[name="stage_notes"]');
+            var rejReason = appStageForm.querySelector('[name="rejection_reason"]');
+
+            fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': getCSRFToken(),
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    stage: newStage,
+                    stage_notes: stageNotes ? stageNotes.value : '',
+                    rejection_reason: rejReason ? rejReason.value : '',
+                }),
+            })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Failed');
+                return r.json();
+            })
+            .then(function() {
+                // Update the stage badge in the hero section
+                var badge = document.querySelector('.profile-meta .stage-badge');
+                if (badge) {
+                    badge.textContent = newStage.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+                    badge.className = 'stage-badge stage-' + newStage;
+                }
+                openScheduleInterviewModal(newStage, appId, candidateName);
+            })
+            .catch(function() {
+                // Fallback: submit form normally
+                appStageForm.submit();
+            });
+        });
+    }
+}
+
+function openScheduleInterviewModal(newStage, appId, candidateName) {
+    if (SIM_INTERVIEW_STAGES.indexOf(newStage) === -1) return;
+
+    document.getElementById('sim_application_id').value = appId;
+    document.getElementById('sim_interview_type').value = newStage;
+    document.getElementById('sim_candidate_name').textContent = candidateName || 'Candidate';
+    document.getElementById('sim_stage_label').textContent = SIM_STAGE_LABELS[newStage] || newStage;
+
+    resetScheduleInterviewModal();
+    openModal('scheduleInterviewModal');
+}
+
+function resetScheduleInterviewModal() {
+    var search = document.getElementById('sim_interviewer_search');
+    var hidden = document.getElementById('sim_employee_id');
+    var selected = document.getElementById('sim_selected_interviewer');
+    var results = document.getElementById('sim_employee_results');
+    var schedAt = document.getElementById('sim_scheduled_at');
+    var notes = document.getElementById('sim_notes');
+
+    if (search) { search.value = ''; search.style.display = ''; }
+    if (hidden) hidden.value = '';
+    if (selected) selected.style.display = 'none';
+    if (results) { results.style.display = 'none'; results.innerHTML = ''; }
+    if (schedAt) schedAt.value = '';
+    if (notes) notes.value = '';
+}
+
+function initSimEmployeeSearch() {
+    var searchInput = document.getElementById('sim_interviewer_search');
+    var resultsDiv = document.getElementById('sim_employee_results');
+    var hiddenInput = document.getElementById('sim_employee_id');
+    var selectedDiv = document.getElementById('sim_selected_interviewer');
+    var clearBtn = document.getElementById('sim_clear_interviewer');
+    var modal = document.getElementById('scheduleInterviewModal');
+
+    if (!searchInput || !modal) return;
+
+    var searchUrl = modal.dataset.searchUrl;
+    var debounce = null;
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounce);
+        var q = this.value.trim();
+        if (q.length < 2) { resultsDiv.style.display = 'none'; return; }
+        debounce = setTimeout(function() {
+            fetch(searchUrl + '?q=' + encodeURIComponent(q), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.length) {
+                    resultsDiv.innerHTML = '<div class="employee-result-item text-muted">No employees found</div>';
+                } else {
+                    resultsDiv.innerHTML = data.map(function(e) {
+                        return '<div class="employee-result-item"' +
+                            ' data-id="' + e.id + '"' +
+                            ' data-name="' + escapeHtml(e.name) + '"' +
+                            ' data-email="' + escapeHtml(e.email) + '"' +
+                            ' data-has-account="' + (e.has_account ? '1' : '0') + '">' +
+                            '<strong>' + escapeHtml(e.name) + '</strong>' +
+                            ' <small class="text-muted">' + escapeHtml(e.email) + '</small>' +
+                            (e.has_account ? '' : ' <span class="badge badge-warning" style="font-size:10px;">No account</span>') +
+                            '</div>';
+                    }).join('');
+                }
+                resultsDiv.style.display = 'block';
+            });
+        }, 300);
+    });
+
+    resultsDiv.addEventListener('click', function(e) {
+        var item = e.target.closest('.employee-result-item');
+        if (!item || !item.dataset.id) return;
+
+        hiddenInput.value = item.dataset.id;
+        document.getElementById('sim_sel_name').textContent = item.dataset.name;
+        document.getElementById('sim_sel_email').textContent = item.dataset.email;
+
+        var noteDiv = document.getElementById('sim_sel_account_note');
+        if (noteDiv) noteDiv.style.display = item.dataset.hasAccount === '0' ? 'flex' : 'none';
+
+        selectedDiv.style.display = 'flex';
+        searchInput.style.display = 'none';
+        resultsDiv.style.display = 'none';
+    });
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            hiddenInput.value = '';
+            selectedDiv.style.display = 'none';
+            searchInput.style.display = '';
+            searchInput.value = '';
+            searchInput.focus();
+        });
+    }
 }

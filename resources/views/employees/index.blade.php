@@ -48,7 +48,7 @@
         <tbody>
         @forelse($employees as $emp)
         <tr>
-            <td><a href="{{ route('employees.show', $emp) }}" style="font-weight:500">{{ $emp->full_name }}</a></td>
+            <td><a href="{{ route('employees.show', $emp) }}" class="name-link">{{ $emp->full_name }}</a></td>
             <td>{{ $emp->email }}</td>
             <td>{{ $emp->department?->name ?? '-' }}</td>
             <td>{{ $emp->designation ?? '-' }}</td>
@@ -66,8 +66,8 @@
                 </div>
             </td>
             <td>
-                <a href="{{ route('employees.show', $emp) }}" class="btn btn-sm btn-secondary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <a href="{{ route('employees.show', $emp) }}" class="action-link">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     View
                 </a>
             </td>

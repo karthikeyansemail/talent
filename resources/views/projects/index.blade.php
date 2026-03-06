@@ -25,7 +25,7 @@
         <tbody>
         @forelse($projects as $p)
         <tr>
-            <td><a href="{{ route('projects.show', $p) }}">{{ $p->name }}</a></td>
+            <td><a href="{{ route('projects.show', $p) }}" class="name-link">{{ $p->name }}</a></td>
             <td>@include('components.stage-badge', ['stage' => $p->complexity_level])</td>
             <td>@include('components.stage-badge', ['stage' => $p->status])</td>
             <td><div class="tags">@foreach(array_slice($p->required_skills ?? [], 0, 3) as $s)<span class="tag">{{ $s }}</span>@endforeach</div></td>
@@ -33,12 +33,12 @@
             <td class="text-sm text-muted">{{ $p->start_date?->format('M d') }} - {{ $p->end_date?->format('M d, Y') }}</td>
             <td>
                 <div class="table-actions">
-                    <a href="{{ route('projects.show', $p) }}" class="btn btn-sm btn-secondary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <a href="{{ route('projects.show', $p) }}" class="action-link">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                         View
                     </a>
-                    <a href="{{ route('projects.edit', $p) }}" class="btn btn-sm btn-secondary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <a href="{{ route('projects.edit', $p) }}" class="action-link action-link--secondary">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Edit
                     </a>
                 </div>

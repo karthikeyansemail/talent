@@ -11,13 +11,17 @@
 </div>
 <div class="card">
     <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th></th></tr></thead>
         <tbody>
         @forelse($users as $user)
         <tr>
             <td>{{ $user->name }}</td>
             <td>{{ $user->email }}</td>
-            <td><span class="badge badge-blue">{{ ucwords(str_replace('_',' ',$user->role)) }}</span></td>
+            <td>
+                @foreach($user->roles as $r)
+                <span class="badge badge-blue" style="margin:1px 2px">{{ \App\Enums\RoleRegistry::label($r->role) }}</span>
+                @endforeach
+            </td>
             <td>
                 @if($user->is_active)
                 <span class="status-indicator"><span class="status-dot" style="background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.2)"></span> Active</span>

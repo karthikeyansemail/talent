@@ -8,6 +8,7 @@ use App\Models\JiraConnection;
 use App\Models\Organization;
 use App\Models\Project;
 use App\Models\User;
+use App\Models\UserRole;
 use Illuminate\Database\Seeder;
 
 /**
@@ -39,6 +40,7 @@ class NalamSystemsSeeder extends Seeder
             'organization_id' => $org->id,
             'is_active'       => true,
         ]);
+        UserRole::create(['user_id' => $admin->id, 'role' => 'org_admin']);
 
         $hrm = User::create([
             'name'            => 'Human Resource Manager',
@@ -48,6 +50,7 @@ class NalamSystemsSeeder extends Seeder
             'organization_id' => $org->id,
             'is_active'       => true,
         ]);
+        UserRole::create(['user_id' => $hrm->id, 'role' => 'hr_manager']);
 
         $pm = User::create([
             'name'            => 'Program Manager',
@@ -57,52 +60,33 @@ class NalamSystemsSeeder extends Seeder
             'organization_id' => $org->id,
             'is_active'       => true,
         ]);
+        UserRole::create(['user_id' => $pm->id, 'role' => 'resource_manager']);
 
         // Employee-role user accounts for the 5 developers
-        $rahulUser = User::create([
-            'name'            => 'Rahul Kumar',
-            'email'           => 'rahul.kumar@nalamsystems.work',
-            'password'        => 'NalamDemo@Systems1',
-            'role'            => 'employee',
-            'organization_id' => $org->id,
-            'is_active'       => true,
-        ]);
-
-        $davidUser = User::create([
-            'name'            => 'David Kim',
-            'email'           => 'david.kim@nalamsystems.work',
-            'password'        => 'NalamDemo@Systems1',
-            'role'            => 'employee',
-            'organization_id' => $org->id,
-            'is_active'       => true,
-        ]);
-
-        $amanUser = User::create([
-            'name'            => 'Aman Verma',
-            'email'           => 'aman.verma@nalamsystems.work',
-            'password'        => 'NalamDemo@Systems1',
-            'role'            => 'employee',
-            'organization_id' => $org->id,
-            'is_active'       => true,
-        ]);
-
-        $saraUser = User::create([
-            'name'            => 'Sara Lim',
-            'email'           => 'sara.lim@nalamsystems.work',
-            'password'        => 'NalamDemo@Systems1',
-            'role'            => 'employee',
-            'organization_id' => $org->id,
-            'is_active'       => true,
-        ]);
-
-        $anitaUser = User::create([
-            'name'            => 'Anita Patel',
-            'email'           => 'anita.patel@nalamsystems.work',
-            'password'        => 'NalamDemo@Systems1',
-            'role'            => 'employee',
-            'organization_id' => $org->id,
-            'is_active'       => true,
-        ]);
+        $employeeUsers = [];
+        foreach ([
+            ['Rahul Kumar', 'rahul.kumar@nalamsystems.work'],
+            ['David Kim', 'david.kim@nalamsystems.work'],
+            ['Aman Verma', 'aman.verma@nalamsystems.work'],
+            ['Sara Lim', 'sara.lim@nalamsystems.work'],
+            ['Anita Patel', 'anita.patel@nalamsystems.work'],
+        ] as $emp) {
+            $u = User::create([
+                'name'            => $emp[0],
+                'email'           => $emp[1],
+                'password'        => 'NalamDemo@Systems1',
+                'role'            => 'employee',
+                'organization_id' => $org->id,
+                'is_active'       => true,
+            ]);
+            UserRole::create(['user_id' => $u->id, 'role' => 'employee']);
+            $employeeUsers[$emp[1]] = $u;
+        }
+        $rahulUser = $employeeUsers['rahul.kumar@nalamsystems.work'];
+        $davidUser = $employeeUsers['david.kim@nalamsystems.work'];
+        $amanUser  = $employeeUsers['aman.verma@nalamsystems.work'];
+        $saraUser  = $employeeUsers['sara.lim@nalamsystems.work'];
+        $anitaUser = $employeeUsers['anita.patel@nalamsystems.work'];
 
         $this->command->info('Created 8 user accounts');
 

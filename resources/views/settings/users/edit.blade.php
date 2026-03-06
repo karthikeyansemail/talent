@@ -26,13 +26,18 @@
                 <input type="password" name="password" class="form-control" placeholder="Leave blank to keep current">
                 <div class="form-hint">Leave blank to keep current password</div>
             </div>
+            @php use App\Enums\RoleRegistry; $userRoles = $user->roles->pluck('role')->toArray(); @endphp
             <div class="form-group">
-                <label>Role *</label>
-                <select name="role" class="form-control" required>
-                    @foreach(['hr_manager'=>'HR Manager','hiring_manager'=>'Hiring Manager','resource_manager'=>'Resource Manager','management'=>'Management','employee'=>'Employee','org_admin'=>'Org Admin'] as $val=>$lbl)
-                    <option value="{{ $val }}" {{ old('role',$user->role)===$val?'selected':'' }}>{{ $lbl }}</option>
-                    @endforeach
-                </select>
+                <label>Roles *</label>
+                <p style="font-size:12px;color:var(--gray-500);margin:0 0 8px">Select one or more roles for this user</p>
+                @foreach(RoleRegistry::assignable() as $key => $meta)
+                <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;margin:0">
+                    <input type="checkbox" name="roles[]" value="{{ $key }}" {{ in_array($key, old('roles', $userRoles)) ? 'checked' : '' }}>
+                    <span style="font-weight:500">{{ $meta['label'] }}</span>
+                    <span style="font-size:11px;color:var(--gray-400)">— {{ $meta['description'] }}</span>
+                </label>
+                @endforeach
+                @error('roles') <p style="color:var(--danger);font-size:12px;margin:4px 0 0">{{ $message }}</p> @enderror
             </div>
             <div class="flex gap-10">
                 <button type="submit" class="btn btn-primary">

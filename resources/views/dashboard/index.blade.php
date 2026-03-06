@@ -3,31 +3,57 @@
 @section('page-title', 'Dashboard')
 @section('content')
 <div class="page-header">
-    <div>
-        <h1>Dashboard</h1>
-    </div>
+    <h1>Dashboard</h1>
 </div>
 
-<div class="stats-grid">
-    <div class="stat-card primary">
-        <div class="stat-value">{{ $stats['total_jobs'] }}</div>
-        <div class="stat-label">Total Jobs ({{ $stats['open_jobs'] }} open)</div>
-    </div>
-    <div class="stat-card success">
-        <div class="stat-value">{{ $stats['total_candidates'] }}</div>
-        <div class="stat-label">Total Candidates</div>
-    </div>
-    <div class="stat-card warning">
-        <div class="stat-value">{{ $stats['total_applications'] }}</div>
-        <div class="stat-label">Applications</div>
-    </div>
-    <div class="stat-card info">
-        <div class="stat-value">{{ $stats['total_employees'] }}</div>
-        <div class="stat-label">Employees</div>
-    </div>
-    <div class="stat-card primary">
-        <div class="stat-value">{{ $stats['total_projects'] }}</div>
-        <div class="stat-label">Projects</div>
+<div class="card">
+    <div class="dash-stats">
+        <a href="{{ route('jobs.index') }}" class="dash-stat">
+            <div class="dash-stat__icon dash-stat__icon--primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            </div>
+            <div class="dash-stat__info">
+                <span class="dash-stat__value">{{ $stats['total_jobs'] }}</span>
+                <span class="dash-stat__label">Jobs</span>
+            </div>
+            <span class="dash-stat__sub">{{ $stats['open_jobs'] }} open</span>
+        </a>
+        <a href="{{ route('candidates.index') }}" class="dash-stat">
+            <div class="dash-stat__icon dash-stat__icon--success">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="dash-stat__info">
+                <span class="dash-stat__value">{{ $stats['total_candidates'] }}</span>
+                <span class="dash-stat__label">Candidates</span>
+            </div>
+        </a>
+        <a href="{{ route('applications.index') }}" class="dash-stat">
+            <div class="dash-stat__icon dash-stat__icon--warning">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div class="dash-stat__info">
+                <span class="dash-stat__value">{{ $stats['total_applications'] }}</span>
+                <span class="dash-stat__label">Applications</span>
+            </div>
+        </a>
+        <a href="{{ route('employees.index') }}" class="dash-stat">
+            <div class="dash-stat__icon dash-stat__icon--info">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div class="dash-stat__info">
+                <span class="dash-stat__value">{{ $stats['total_employees'] }}</span>
+                <span class="dash-stat__label">Employees</span>
+            </div>
+        </a>
+        <a href="{{ route('projects.index') }}" class="dash-stat">
+            <div class="dash-stat__icon dash-stat__icon--primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div class="dash-stat__info">
+                <span class="dash-stat__value">{{ $stats['total_projects'] }}</span>
+                <span class="dash-stat__label">Projects</span>
+            </div>
+        </a>
     </div>
 </div>
 
@@ -76,14 +102,20 @@
         </div>
     @else
     <table>
-        <thead><tr><th>Candidate</th><th>Job</th><th>Stage</th><th>Applied</th></tr></thead>
+        <thead><tr><th>Candidate</th><th>Job</th><th>Stage</th><th>Applied</th><th></th></tr></thead>
         <tbody>
         @foreach($recentApplications as $app)
         <tr>
-            <td><a href="{{ route('candidates.show', $app->candidate_id) }}">{{ $app->candidate->full_name }}</a></td>
-            <td><a href="{{ route('jobs.show', $app->job_posting_id) }}">{{ $app->jobPosting->title }}</a></td>
+            <td><a href="{{ route('candidates.show', $app->candidate_id) }}" class="name-link">{{ $app->candidate->full_name }}</a></td>
+            <td><a href="{{ route('jobs.show', $app->job_posting_id) }}" class="name-link">{{ $app->jobPosting->title }}</a></td>
             <td>@include('components.stage-badge', ['stage' => $app->stage])</td>
             <td class="text-sm text-muted">{{ $app->applied_at?->diffForHumans() }}</td>
+            <td>
+                <a href="{{ route('applications.show', $app) }}" class="action-link">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    View
+                </a>
+            </td>
         </tr>
         @endforeach
         </tbody>

@@ -15,7 +15,7 @@
     <tbody>
     @foreach($project->resourceMatches->sortByDesc('match_score') as $match)
     {{-- Main row --}}
-    <tr>
+    <tr @if($match->explanation) data-expand-target="expand-match-{{ $match->id }}" @endif>
         <td>
             <div style="display:flex;align-items:center;gap:8px">
                 @if($match->explanation)
@@ -27,7 +27,7 @@
                     <svg class="expand-icon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
                 @endif
-                <a href="{{ route('employees.show', $match->employee_id) }}" style="font-weight:500">{{ $match->employee->full_name }}</a>
+                <a href="{{ route('employees.show', $match->employee_id) }}" class="name-link">{{ $match->employee->full_name }}</a>
             </div>
         </td>
         <td>{{ $match->employee->department?->name ?? '-' }}</td>

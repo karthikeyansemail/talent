@@ -18,6 +18,8 @@ class User extends Authenticatable
         'password', 'remember_token',
     ];
 
+    protected $with = ['roles'];
+
     protected function casts(): array
     {
         return [
@@ -37,13 +39,34 @@ class User extends Authenticatable
         return $this->hasMany(ActivityLog::class);
     }
 
-    public function isSuperAdmin(): bool { return $this->role === 'super_admin'; }
-    public function isOrgAdmin(): bool { return $this->role === 'org_admin'; }
-    public function isAdmin(): bool { return in_array($this->role, ['super_admin', 'org_admin']); }
-    public function isHrManager(): bool { return $this->role === 'hr_manager'; }
-    public function isHiringManager(): bool { return $this->role === 'hiring_manager'; }
-    public function isResourceManager(): bool { return $this->role === 'resource_manager'; }
-    public function isEmployee(): bool { return $this->role === 'employee'; }
+    public function roles()
+    {
+        return $this->hasMany(UserRole::class);
+    }
+
+    public function hasRole(string $role): bool
+    {
+        return $this->roles->contains('role', $role);
+    }
+
+    public function hasAnyRole(array $roles): bool
+    {
+        return $this->roles->whereIn('role', $roles)->isNotEmpty();
+    }
+
+    public function getRoleNames(): array
+    {
+        return $this->roles->pluck('role')->toArray();
+    }
+
+    public function isSuperAdmin(): bool { return $this->hasRole('super_admin'); }
+    public function isOrgAdmin(): bool { return $this->hasRole('org_admin'); }
+    public function isAdmin(): bool { return $this->hasAnyRole(['super_admin', 'org_admin']); }
+    public function isHrManager(): bool { return $this->hasRole('hr_manager'); }
+    public function isHiringManager(): bool { return $this->hasRole('hiring_manager'); }
+    public function isResourceManager(): bool { return $this->hasRole('resource_manager'); }
+    public function isEmployee(): bool { return $this->hasRole('employee'); }
+    public function isInterviewer(): bool { return $this->hasRole('interviewer'); }
 
     public function currentOrganizationId(): ?int
     {

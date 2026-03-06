@@ -75,8 +75,8 @@
         <div class="card-body">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
                 <div>
-                    <div style="font-size:11px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Role</div>
-                    <div style="font-size:13px;color:var(--gray-800);font-weight:500">{{ ucwords(str_replace('_', ' ', $user->role)) }}</div>
+                    <div style="font-size:11px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Roles</div>
+                    <div style="font-size:13px;color:var(--gray-800);font-weight:500">{{ $user->roles->pluck('role')->map(fn($r) => \App\Enums\RoleRegistry::label($r))->implode(', ') }}</div>
                 </div>
                 <div>
                     <div style="font-size:11px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Organization</div>

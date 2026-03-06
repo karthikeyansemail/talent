@@ -39,6 +39,7 @@ class RegisterController extends Controller
             'organization_id' => $organization->id,
             'is_active' => true,
         ]);
+        $user->roles()->create(['role' => 'org_admin']);
 
         Auth::login($user);
         return redirect('/dashboard');

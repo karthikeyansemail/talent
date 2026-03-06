@@ -57,6 +57,8 @@ class Organization extends Model
             'bulk_upload'          => false,
             'scoring_rules'        => false,
             'integrations'         => false,
+            'live_interviews'      => true,   // basic scheduling works on free
+            'interview_ai'         => false,  // AI questions/evaluation/summary require paid
             default                => false,
         };
     }

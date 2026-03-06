@@ -85,10 +85,14 @@
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 Update Stage
             </div>
-            <form method="POST" action="{{ route('applications.updateStage', $application) }}">
+            <form method="POST" action="{{ route('applications.updateStage', $application) }}"
+                  id="appStageForm"
+                  data-application-id="{{ $application->id }}"
+                  data-candidate-name="{{ $application->candidate->full_name }}"
+                  data-update-url="{{ route('applications.updateStage', $application) }}">
                 @csrf @method('PUT')
                 <div class="flex gap-10" style="margin-bottom:12px">
-                    <select name="stage" class="form-control">
+                    <select name="stage" id="appStageSelect" class="form-control">
                         @foreach(['applied','ai_shortlisted','hr_screening','technical_round_1','technical_round_2','offer','hired','rejected'] as $s)
                         <option value="{{ $s }}" {{ $application->stage === $s ? 'selected' : '' }}>{{ ucwords(str_replace('_',' ',$s)) }}</option>
                         @endforeach
@@ -166,6 +170,9 @@
     </table>
 </div>
 
+{{-- Interview Report --}}
+@include('components.interview-report', ['interviewSessions' => $application->interviewSessions])
+
 {{-- Feedback Modal --}}
 <div class="modal-overlay" id="feedbackModal">
     <div class="modal">
@@ -215,4 +222,7 @@
         </form>
     </div>
 </div>
+
+{{-- Schedule Interview Modal --}}
+@include('components.schedule-interview-modal')
 @endsection

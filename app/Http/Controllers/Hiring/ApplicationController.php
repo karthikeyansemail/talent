@@ -59,7 +59,7 @@ class ApplicationController extends Controller
 
     public function show(JobApplication $application)
     {
-        $application->load(['jobPosting', 'candidate', 'resume', 'feedback.interviewer']);
+        $application->load(['jobPosting', 'candidate', 'resume', 'feedback.interviewer', 'interviewSessions.interviewer']);
         if ($application->jobPosting->organization_id !== Auth::user()->currentOrganizationId()) {
             abort(403);
         }

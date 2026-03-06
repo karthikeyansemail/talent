@@ -101,6 +101,21 @@ class AiServiceClient
         ], $employee->organization_id);
     }
 
+    public function generateInterviewQuestions(array $data, ?int $orgId = null): array
+    {
+        return $this->call('/generate-interview-questions', $data, $orgId);
+    }
+
+    public function evaluateInterviewAnswer(array $data, ?int $orgId = null): array
+    {
+        return $this->call('/evaluate-interview-answer', $data, $orgId);
+    }
+
+    public function generateInterviewSummary(array $data, ?int $orgId = null): array
+    {
+        return $this->call('/generate-interview-summary', $data, $orgId);
+    }
+
     public function healthCheck(): array
     {
         try {

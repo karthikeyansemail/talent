@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('interview_feedback', function (Blueprint $table) {
+            $table->foreignId('interview_session_id')->nullable()->after('interviewer_id')
+                  ->constrained('interview_sessions')->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('interview_feedback', function (Blueprint $table) {
+            $table->dropForeign(['interview_session_id']);
+            $table->dropColumn('interview_session_id');
+        });
+    }
+};

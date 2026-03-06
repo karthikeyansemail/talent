@@ -27,4 +27,5 @@ class JobApplication extends Model
     public function candidate() { return $this->belongsTo(Candidate::class); }
     public function resume() { return $this->belongsTo(Resume::class); }
     public function feedback() { return $this->hasMany(InterviewFeedback::class, 'job_application_id'); }
+    public function interviewSessions() { return $this->hasMany(InterviewSession::class, 'job_application_id'); }
 }

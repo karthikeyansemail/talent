@@ -36,7 +36,7 @@
                 Dashboard
             </a>
 
-            @if(in_array(auth()->user()->role, ['hr_manager','hiring_manager','management','org_admin','super_admin']))
+            @if(auth()->user()->hasAnyRole(['hr_manager','hiring_manager','org_admin','super_admin']))
             <div class="sidebar-heading">Hiring</div>
             <a href="{{ route('jobs.index') }}" class="sidebar-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"/></svg></span>
@@ -52,8 +52,17 @@
             </a>
             @endif
 
+            {{-- ── INTERVIEWS: Interviewers & Hiring Roles ── --}}
+            @if(auth()->user()->hasAnyRole(['interviewer','hr_manager','hiring_manager','org_admin','super_admin']))
+            <div class="sidebar-heading">Interviews</div>
+            <a href="{{ route('interviews.index') }}" class="sidebar-link {{ request()->routeIs('interviews.*') ? 'active' : '' }}">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+                My Interviews
+            </a>
+            @endif
+
             {{-- ── WORK PULSE: Team Leads & Management ── --}}
-            @if(in_array(auth()->user()->role, ['resource_manager','management','org_admin','super_admin']))
+            @if(auth()->user()->hasAnyRole(['resource_manager','org_admin','super_admin']))
             <div class="sidebar-heading">Work Pulse</div>
             <a href="{{ route('employees.index') }}" class="sidebar-link {{ request()->routeIs('employees.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></span>
@@ -68,7 +77,7 @@
             @endif
 
             {{-- ── RESOURCE ALLOCATION: Project Managers ── --}}
-            @if(in_array(auth()->user()->role, ['resource_manager','management','org_admin','super_admin']))
+            @if(auth()->user()->hasAnyRole(['resource_manager','org_admin','super_admin']))
             <div class="sidebar-heading">Resource Allocation</div>
             <a href="{{ route('projects.index') }}" class="sidebar-link {{ request()->routeIs('projects.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17 14v7"/></svg></span>
@@ -76,9 +85,9 @@
             </a>
             @endif
 
-            @if(in_array(auth()->user()->role, ['hr_manager','org_admin','super_admin']))
+            @if(auth()->user()->hasAnyRole(['hr_manager','org_admin','super_admin']))
             <div class="sidebar-heading">Settings</div>
-            @if(in_array(auth()->user()->role, ['org_admin','super_admin']))
+            @if(auth()->user()->hasAnyRole(['org_admin','super_admin']))
             <a href="{{ route('settings.organization.edit') }}" class="sidebar-link {{ request()->routeIs('settings.organization.*') ? 'active' : '' }}">
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
                 Workspace Settings
@@ -143,7 +152,7 @@
             <div class="user-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</div>
             <div class="user-info">
                 <div class="user-name">{{ auth()->user()->name }}</div>
-                <div class="user-role">{{ str_replace('_', ' ', auth()->user()->role) }}</div>
+                <div class="user-role">{{ auth()->user()->roles->pluck('role')->map(fn($r) => \App\Enums\RoleRegistry::label($r))->implode(', ') }}</div>
             </div>
         </div>
         </a>

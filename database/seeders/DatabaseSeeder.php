@@ -11,6 +11,7 @@ use App\Models\Organization;
 use App\Models\Project;
 use App\Models\Resume;
 use App\Models\User;
+use App\Models\UserRole;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -18,7 +19,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Create super admin — not tied to any organization (belongs to the whole instance)
-        User::create([
+        $superAdmin = User::create([
             'name' => 'Platform Admin',
             'email' => 'admin@nalampulse.com',
             'password' => 'password',
@@ -26,6 +27,7 @@ class DatabaseSeeder extends Seeder
             'organization_id' => null,
             'is_active' => true,
         ]);
+        UserRole::create(['user_id' => $superAdmin->id, 'role' => 'super_admin']);
 
         // Create client organization
         $org = Organization::create([
@@ -44,6 +46,7 @@ class DatabaseSeeder extends Seeder
             'organization_id' => $org->id,
             'is_active' => true,
         ]);
+        UserRole::create(['user_id' => $admin->id, 'role' => 'org_admin']);
 
         // Create other role users
         $hrManager = User::create([
@@ -54,6 +57,7 @@ class DatabaseSeeder extends Seeder
             'organization_id' => $org->id,
             'is_active' => true,
         ]);
+        UserRole::create(['user_id' => $hrManager->id, 'role' => 'hr_manager']);
 
         $resourceManager = User::create([
             'name' => 'Mike Resources',
@@ -63,6 +67,7 @@ class DatabaseSeeder extends Seeder
             'organization_id' => $org->id,
             'is_active' => true,
         ]);
+        UserRole::create(['user_id' => $resourceManager->id, 'role' => 'resource_manager']);
 
         // Create departments
         $engineering = Department::create(['organization_id' => $org->id, 'name' => 'Engineering', 'description' => 'Software Engineering']);

@@ -398,4 +398,7 @@
         </form>
     </div>
 </div>
+
+{{-- Schedule Interview Modal --}}
+@include('components.schedule-interview-modal')
 @endsection

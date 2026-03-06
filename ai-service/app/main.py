@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
@@ -37,6 +37,12 @@ from app.services.resume_profile_parser import parse_resume_profile
 from app.services.project_parser import parse_project_requirements
 from app.services.signal_analyzer import analyze_signals
 from app.services.work_pulse_analyzer import analyze_work_pulse
+from app.services.interview_assistant import (
+    generate_interview_questions,
+    evaluate_interview_answer,
+    generate_interview_summary,
+)
+from app.services.audio_transcriber import transcribe_audio
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -250,6 +256,82 @@ async def analyze_work_pulse_endpoint(request: WorkPulseAnalyzeRequest) -> WorkP
     except Exception as exc:
         logger.exception("Unhandled error in /work-pulse/analyze")
         raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+# ---------------------------------------------------------------------------
+# Interview Assistant
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/generate-interview-questions",
+    tags=["interview"],
+    summary="Generate AI-resistant interview questions",
+)
+async def generate_interview_questions_endpoint(request: dict) -> dict:
+    """Generate contextual interview questions based on job requirements,
+    candidate profile, and conversation history."""
+    try:
+        return await generate_interview_questions(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /generate-interview-questions")
+        raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+@app.post(
+    "/evaluate-interview-answer",
+    tags=["interview"],
+    summary="Evaluate a candidate's answer to an interview question",
+)
+async def evaluate_interview_answer_endpoint(request: dict) -> dict:
+    """Evaluate depth of understanding, practical experience, and communication."""
+    try:
+        return await evaluate_interview_answer(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /evaluate-interview-answer")
+        raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+@app.post(
+    "/generate-interview-summary",
+    tags=["interview"],
+    summary="Generate a comprehensive interview summary",
+)
+async def generate_interview_summary_endpoint(request: dict) -> dict:
+    """Summarize the entire interview with scores, strengths, concerns,
+    and a hiring recommendation narrative."""
+    try:
+        return await generate_interview_summary(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /generate-interview-summary")
+        raise HTTPException(status_code=500, detail="Internal AI processing error.") from exc
+
+
+# ---------------------------------------------------------------------------
+# Audio Transcription
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/transcribe-audio",
+    tags=["interview"],
+    summary="Transcribe an audio chunk using local Whisper model",
+)
+async def transcribe_audio_endpoint(file: UploadFile = File(...)) -> dict:
+    """Accept an audio file (webm/wav/mp3) and return transcribed text."""
+    try:
+        audio_bytes = await file.read()
+        text = await transcribe_audio(audio_bytes)
+        return {"text": text}
+    except Exception as exc:
+        logger.exception("Unhandled error in /transcribe-audio")
+        raise HTTPException(status_code=500, detail="Transcription failed.") from exc
 
 
 # ---------------------------------------------------------------------------
