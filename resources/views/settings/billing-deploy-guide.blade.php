@@ -15,8 +15,8 @@
     <div class="card-body" style="padding:16px 20px">
         <div style="font-size:14px;font-weight:600;color:var(--gray-800);margin-bottom:4px">Deploy Nalam Pulse on your own infrastructure</div>
         <div style="font-size:13px;color:var(--gray-500)">
-            Choose your cloud provider below. Each guide walks you through creating a VM, installing Docker, and launching the full stack in under 30 minutes.
-            All options use the same <strong>Docker Compose</strong> package — only the VM creation step differs.
+            Click a button below to deploy on your preferred cloud. AWS and Azure use pre-filled infrastructure templates — just fill a short form and click Create.
+            GCP opens Cloud Shell with one command to run. All options are fully automated — no manual Docker setup or SSH required.
         </div>
     </div>
 </div>
@@ -131,57 +131,48 @@
 <div id="pane-aws" class="deploy-pane" style="display:none">
     <div class="card" style="margin-top:0;border-top-left-radius:0;border-top-right-radius:0">
         <div class="card-body">
-            <h3 style="font-size:15px;font-weight:700;margin-bottom:20px;color:var(--gray-800)">Deploy on Amazon EC2</h3>
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;color:var(--gray-800)">Deploy on Amazon EC2 via CloudFormation</h3>
+            <p style="font-size:13px;color:var(--gray-500);margin-bottom:20px">CloudFormation creates the VM, installs Docker, and starts all containers automatically. No SSH required.</p>
 
-            @include('settings._deploy-step', ['n'=>1, 'title'=>'Launch an EC2 Instance', 'content'=>'
-<p>Go to <strong>EC2 → Launch Instance</strong>.</p>
+            @include('settings._deploy-step', ['n'=>1, 'title'=>'Click "Deploy to AWS" above', 'content'=>'
+<p>The <strong>Deploy to AWS — CloudFormation</strong> button at the top of this page opens the AWS CloudFormation console with the Nalam Pulse infrastructure template pre-loaded.</p>
+<p>You will land directly on the <strong>Create Stack → Review</strong> page — the template is already filled in.</p>
+'])
+
+            @include('settings._deploy-step', ['n'=>2, 'title'=>'Fill in the Parameters form', 'content'=>'
+<p>CloudFormation shows a short form. Fill in:</p>
 <ul>
-<li>AMI: <strong>Ubuntu 22.04 LTS</strong></li>
-<li>Instance type: <strong>t3.medium</strong> (2 vCPU, 4 GB RAM) minimum. <strong>t3.large</strong> recommended for production.</li>
-<li>Storage: <strong>30 GB gp3</strong></li>
-<li>Security group: open ports <strong>80</strong> (HTTP), <strong>443</strong> (HTTPS), <strong>22</strong> (SSH)</li>
-<li>Create or select a key pair (.pem file) for SSH access</li>
+<li><strong>KeyPairName</strong> — an existing EC2 key pair (create one in EC2 → Key Pairs if you don\'t have one)</li>
+<li><strong>NalamLicenseKey</strong> — the license key from your purchase email</li>
+<li><strong>DomainName</strong> — e.g. <code>talent.yourcompany.com</code></li>
+<li><strong>SMTPHost / SMTPPort / SMTPUser / SMTPPassword</strong> — your email provider credentials</li>
+<li><strong>OpenAIApiKey</strong> — your OpenAI API key</li>
 </ul>
-<p>After launch, note the <strong>Public IPv4 address</strong> (or assign an Elastic IP for a stable address).</p>
+<p>Instance type defaults to <strong>t3.medium</strong>. Change to <strong>t3.large</strong> for production workloads.</p>
 '])
 
-            @include('settings._deploy-step', ['n'=>2, 'title'=>'Point Your Domain', 'content'=>'
-<p>In your DNS provider, create an <strong>A record</strong>:</p>
-<pre>talent.yourcompany.com  →  &lt;EC2 Public IP&gt;</pre>
-<p>Wait for propagation (usually 5–15 minutes). If you don\'t have a domain yet, you can use the raw IP first and add SSL later.</p>
-'])
-
-            @include('settings._deploy-step', ['n'=>3, 'title'=>'SSH into Your Instance', 'content'=>'
-<pre>chmod 400 your-key.pem
-ssh -i your-key.pem ubuntu@&lt;EC2-PUBLIC-IP&gt;</pre>
-'])
-
-            @include('settings._deploy-step', ['n'=>4, 'title'=>'Run the One-Line Installer', 'content'=>'
-<p>Once logged in, run:</p>
-<pre>curl -fsSL https://raw.githubusercontent.com/nalampulse/deploy/main/scripts/install.sh | sudo bash</pre>
-<p>This script will:
+            @include('settings._deploy-step', ['n'=>3, 'title'=>'Click "Create Stack"', 'content'=>'
+<p>Scroll to the bottom, check the acknowledgement checkbox, and click <strong>Create Stack</strong>.</p>
+<p>CloudFormation will:</p>
 <ul>
-<li>Install Docker + Docker Compose</li>
-<li>Download the Nalam Pulse package</li>
-<li>Prompt you for your <strong>license key</strong>, domain, SMTP, and AI API key</li>
-<li>Start all 5 containers (app, nginx, db, ai-service, queue-worker)</li>
-<li>Obtain a free <strong>Let\'s Encrypt SSL certificate</strong> via Certbot</li>
+<li>Launch an EC2 instance (Ubuntu 22.04) with a static Elastic IP</li>
+<li>Open ports 80, 443, and 22 automatically</li>
+<li>Install Docker, pull all Nalam Pulse containers, and start them</li>
+<li>Obtain a free Let\'s Encrypt SSL certificate for your domain</li>
 </ul>
-</p>
-<p>Total time: ~10 minutes on a fresh server.</p>
+<p>Total time: <strong>~10 minutes</strong>. You can watch progress in the CloudFormation Events tab.</p>
 '])
 
-            @include('settings._deploy-step', ['n'=>5, 'title'=>'Verify and Access', 'content'=>'
-<p>After the installer completes, open your domain in a browser. You should see the Nalam Pulse login screen.</p>
-<p>Default super admin credentials are shown at the end of the installer output. <strong>Change your password immediately after first login.</strong></p>
-<p>To check container status at any time:</p>
-<pre>cd /opt/nalampulse && docker compose ps</pre>
+            @include('settings._deploy-step', ['n'=>4, 'title'=>'Point your domain to the output IP', 'content'=>'
+<p>Once the stack status shows <strong>CREATE_COMPLETE</strong>, click the <strong>Outputs</strong> tab. Copy the <strong>ElasticIP</strong> value.</p>
+<p>In your DNS provider, create an A record:</p>
+<pre>talent.yourcompany.com  →  &lt;ElasticIP from Outputs&gt;</pre>
+<p>DNS propagation usually takes 5–15 minutes.</p>
 '])
 
-            @include('settings._deploy-step', ['n'=>6, 'title'=>'Backups (Recommended)', 'content'=>'
-<p>Enable <strong>AWS Automated Backups</strong> or add a daily cron to dump the MySQL database:</p>
-<pre>0 2 * * * docker exec nalampulse-db mysqldump -u root talent_db | gzip > /backups/talent_$(date +\%F).sql.gz</pre>
-<p>Also snapshot your EBS volume weekly from the EC2 console.</p>
+            @include('settings._deploy-step', ['n'=>5, 'title'=>'Access Nalam Pulse', 'content'=>'
+<p>Visit <code>https://talent.yourcompany.com</code> in your browser. You should see the Nalam Pulse login screen.</p>
+<p>Default super admin credentials are shown in the EC2 instance system log (<strong>EC2 → Actions → Monitor and troubleshoot → Get system log</strong>). <strong>Change your password immediately after first login.</strong></p>
 '])
         </div>
     </div>
@@ -191,43 +182,35 @@ ssh -i your-key.pem ubuntu@&lt;EC2-PUBLIC-IP&gt;</pre>
 <div id="pane-gcp" class="deploy-pane" style="display:none">
     <div class="card" style="margin-top:0;border-top-left-radius:0;border-top-right-radius:0">
         <div class="card-body">
-            <h3 style="font-size:15px;font-weight:700;margin-bottom:20px;color:var(--gray-800)">Deploy on Google Compute Engine</h3>
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;color:var(--gray-800)">Deploy on Google Compute Engine via Cloud Shell</h3>
+            <p style="font-size:13px;color:var(--gray-500);margin-bottom:20px">Cloud Shell opens with the deployment repo pre-cloned. One command creates the VM and starts all containers.</p>
 
-            @include('settings._deploy-step', ['n'=>1, 'title'=>'Create a VM Instance', 'content'=>'
-<p>Go to <strong>Compute Engine → VM Instances → Create Instance</strong>.</p>
+            @include('settings._deploy-step', ['n'=>1, 'title'=>'Click "Deploy to GCP" above', 'content'=>'
+<p>The <strong>Deploy to GCP — Cloud Shell</strong> button opens Google Cloud Shell in your browser with the <code>nalampulse/deploy</code> repo already cloned and a setup tutorial on the right.</p>
+<p>Make sure you are logged in to the Google account that has your GCP project.</p>
+'])
+
+            @include('settings._deploy-step', ['n'=>2, 'title'=>'Run the deployment script', 'content'=>'
+<p>In the Cloud Shell terminal that opens, run:</p>
+<pre>bash deploy/gcp/deploy.sh</pre>
+<p>The script will ask you for:</p>
 <ul>
-<li>Machine type: <strong>e2-medium</strong> (2 vCPU, 4 GB) minimum. <strong>e2-standard-2</strong> for production.</li>
-<li>Boot disk: <strong>Ubuntu 22.04 LTS</strong>, 30 GB standard disk</li>
-<li>Firewall: check <strong>Allow HTTP traffic</strong> and <strong>Allow HTTPS traffic</strong></li>
-<li>Region: choose closest to your team</li>
+<li><strong>Project ID</strong> — pre-filled from your current gcloud config</li>
+<li><strong>Zone</strong> — e.g. <code>us-central1-a</code></li>
+<li><strong>License key</strong>, <strong>domain name</strong>, <strong>SMTP credentials</strong>, <strong>OpenAI API key</strong></li>
 </ul>
-<p>Note the <strong>External IP</strong>. Reserve it as a static address: VPC Network → External IP → Reserve.</p>
+<p>After you confirm, it automatically reserves a static IP, creates firewall rules, launches the VM, and starts all containers.</p>
 '])
 
-            @include('settings._deploy-step', ['n'=>2, 'title'=>'Point Your Domain', 'content'=>'
-<p>Create an <strong>A record</strong> in your DNS pointing to the static external IP:</p>
-<pre>talent.yourcompany.com  →  &lt;GCP External IP&gt;</pre>
+            @include('settings._deploy-step', ['n'=>3, 'title'=>'Point your domain to the output IP', 'content'=>'
+<p>The script prints the static external IP at the end. In your DNS provider, create an A record:</p>
+<pre>talent.yourcompany.com  →  &lt;static IP from script output&gt;</pre>
 '])
 
-            @include('settings._deploy-step', ['n'=>3, 'title'=>'SSH into Your VM', 'content'=>'
-<p>Use the GCP Console SSH button, or from gcloud CLI:</p>
-<pre>gcloud compute ssh INSTANCE_NAME --zone=ZONE</pre>
-'])
-
-            @include('settings._deploy-step', ['n'=>4, 'title'=>'Run the One-Line Installer', 'content'=>'
-<pre>curl -fsSL https://raw.githubusercontent.com/nalampulse/deploy/main/scripts/install.sh | sudo bash</pre>
-<p>Follow the prompts: license key, domain, SMTP, AI key. The installer handles Docker installation and SSL automatically.</p>
-'])
-
-            @include('settings._deploy-step', ['n'=>5, 'title'=>'Verify and Access', 'content'=>'
-<p>Visit your domain in a browser. Check containers:</p>
+            @include('settings._deploy-step', ['n'=>4, 'title'=>'Access Nalam Pulse', 'content'=>'
+<p>Visit <code>https://talent.yourcompany.com</code>. SSL is set up automatically by the installer via Let\'s Encrypt.</p>
+<p>To check container status at any time, SSH into the VM and run:</p>
 <pre>cd /opt/nalampulse && docker compose ps</pre>
-<p>All 5 services should show status <strong>Up</strong>.</p>
-'])
-
-            @include('settings._deploy-step', ['n'=>6, 'title'=>'Backups', 'content'=>'
-<p>Enable <strong>Scheduled Snapshots</strong> on your persistent disk from the GCP Console (Compute Engine → Disks → Create Snapshot Schedule).</p>
-<p>For database-level backups, add the same cron as the AWS guide above.</p>
 '])
         </div>
     </div>
@@ -237,41 +220,42 @@ ssh -i your-key.pem ubuntu@&lt;EC2-PUBLIC-IP&gt;</pre>
 <div id="pane-azure" class="deploy-pane" style="display:none">
     <div class="card" style="margin-top:0;border-top-left-radius:0;border-top-right-radius:0">
         <div class="card-body">
-            <h3 style="font-size:15px;font-weight:700;margin-bottom:20px;color:var(--gray-800)">Deploy on Azure Virtual Machine</h3>
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;color:var(--gray-800)">Deploy on Azure VM via ARM Template</h3>
+            <p style="font-size:13px;color:var(--gray-500);margin-bottom:20px">The ARM template creates the VM, networking, and security group, then installs and starts all containers automatically. No SSH required.</p>
 
-            @include('settings._deploy-step', ['n'=>1, 'title'=>'Create a Virtual Machine', 'content'=>'
-<p>Go to <strong>Azure Portal → Virtual Machines → Create</strong>.</p>
+            @include('settings._deploy-step', ['n'=>1, 'title'=>'Click "Deploy to Azure" above', 'content'=>'
+<p>The <strong>Deploy to Azure — ARM Template</strong> button opens the Azure Portal "Custom deployment" page with the Nalam Pulse template pre-loaded.</p>
+<p>Sign in to your Azure account if prompted.</p>
+'])
+
+            @include('settings._deploy-step', ['n'=>2, 'title'=>'Fill in the Parameters form', 'content'=>'
+<p>The deployment form asks for:</p>
 <ul>
-<li>Image: <strong>Ubuntu Server 22.04 LTS</strong></li>
-<li>Size: <strong>Standard_B2s</strong> (2 vCPU, 4 GB) minimum. <strong>Standard_B2ms</strong> for production.</li>
-<li>Authentication: SSH public key (generate or use existing)</li>
-<li>Inbound ports: allow <strong>HTTP (80)</strong>, <strong>HTTPS (443)</strong>, <strong>SSH (22)</strong></li>
-<li>OS disk: 32 GB Standard SSD</li>
+<li><strong>Subscription &amp; Resource Group</strong> — select existing or create new</li>
+<li><strong>Admin Username / SSH Public Key</strong> — for optional SSH access later</li>
+<li><strong>VM Size</strong> — defaults to <strong>Standard_B2s</strong> (2 vCPU, 4 GB). Use <strong>Standard_B2ms</strong> for production.</li>
+<li><strong>License Key</strong>, <strong>Domain Name</strong>, <strong>SMTP credentials</strong>, <strong>OpenAI API key</strong></li>
 </ul>
-<p>After creation, go to the VM → <strong>DNS name label</strong> and assign a DNS name, or use the Public IP and set an A record.</p>
 '])
 
-            @include('settings._deploy-step', ['n'=>2, 'title'=>'Point Your Domain', 'content'=>'
-<p>In your DNS provider, create an <strong>A record</strong> to the VM\'s public IP. Or use the Azure-assigned DNS name directly:</p>
-<pre>talent.yourcompany.com  →  &lt;Azure Public IP&gt;</pre>
+            @include('settings._deploy-step', ['n'=>3, 'title'=>'Click "Review + create" → "Create"', 'content'=>'
+<p>Azure validates the template, then provisions:</p>
+<ul>
+<li>Ubuntu 22.04 VM with a static Public IP</li>
+<li>Network Security Group with ports 80, 443, 22 open</li>
+<li>Docker, all Nalam Pulse containers, and Let\'s Encrypt SSL — all configured automatically</li>
+</ul>
+<p>Total time: <strong>~10 minutes</strong>. Watch progress in the deployment blade.</p>
 '])
 
-            @include('settings._deploy-step', ['n'=>3, 'title'=>'SSH into Your VM', 'content'=>'
-<pre>ssh -i ~/.ssh/your-key.pem azureuser@&lt;PUBLIC-IP&gt;</pre>
+            @include('settings._deploy-step', ['n'=>4, 'title'=>'Point your domain to the output IP', 'content'=>'
+<p>When deployment shows <strong>Your deployment is complete</strong>, click <strong>Outputs</strong> and copy the <strong>publicIP</strong> value.</p>
+<pre>talent.yourcompany.com  →  &lt;publicIP from Outputs&gt;</pre>
 '])
 
-            @include('settings._deploy-step', ['n'=>4, 'title'=>'Run the One-Line Installer', 'content'=>'
-<pre>curl -fsSL https://raw.githubusercontent.com/nalampulse/deploy/main/scripts/install.sh | sudo bash</pre>
-<p>Follow the prompts. The installer detects Ubuntu and installs Docker automatically.</p>
-'])
-
-            @include('settings._deploy-step', ['n'=>5, 'title'=>'Verify and Access', 'content'=>'
-<p>Visit your domain. Check all containers:</p>
-<pre>cd /opt/nalampulse && docker compose ps</pre>
-'])
-
-            @include('settings._deploy-step', ['n'=>6, 'title'=>'Backups', 'content'=>'
-<p>Enable <strong>Azure Backup</strong> for the VM disk from the VM blade → Backup. For database-level backups, set up the daily cron in the crontab of the VM.</p>
+            @include('settings._deploy-step', ['n'=>5, 'title'=>'Access Nalam Pulse', 'content'=>'
+<p>Visit <code>https://talent.yourcompany.com</code> once DNS propagates. You should see the Nalam Pulse login screen.</p>
+<p>Default super admin credentials are in the VM boot log. <strong>Change your password immediately after first login.</strong></p>
 '])
         </div>
     </div>

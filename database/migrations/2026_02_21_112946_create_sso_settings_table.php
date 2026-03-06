@@ -17,7 +17,7 @@ return new class extends Migration
             $table->boolean('is_enabled')->default(false);
             $table->text('client_id')->nullable();     // encrypted
             $table->text('client_secret')->nullable(); // encrypted
-            $table->json('extra_config')->nullable();  // encrypted: tenant_id (MS), okta_domain (Okta)
+            $table->text('extra_config')->nullable();  // encrypted:array cast — must be text, not json
             $table->timestamps();
         });
     }

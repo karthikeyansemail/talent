@@ -138,16 +138,26 @@
         @endif
 
         {{-- User Profile at Bottom --}}
-        <div class="sidebar-user">
+        <a href="{{ route('profile.edit') }}" style="text-decoration:none" title="My Profile">
+        <div class="sidebar-user" style="cursor:pointer">
             <div class="user-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 2)) }}</div>
             <div class="user-info">
                 <div class="user-name">{{ auth()->user()->name }}</div>
                 <div class="user-role">{{ str_replace('_', ' ', auth()->user()->role) }}</div>
             </div>
+        </div>
+        </a>
+        <div style="padding:8px 12px 12px;display:flex;gap:8px;align-items:center">
+            <a href="{{ route('profile.edit') }}"
+               style="flex:1;font-size:11px;color:var(--sidebar-text);opacity:0.6;text-decoration:none;display:flex;align-items:center;gap:5px;transition:opacity .15s"
+               onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Profile &amp; Password
+            </a>
             <form action="{{ route('logout') }}" method="POST" style="margin:0">
                 @csrf
-                <button type="submit" style="background:none;border:none;cursor:pointer;color:var(--sidebar-text);padding:4px;opacity:0.5;transition:opacity 0.15s" title="Sign out" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <button type="submit" style="background:none;border:none;cursor:pointer;color:var(--sidebar-text);padding:4px;opacity:0.5;transition:opacity 0.15s;display:flex;align-items:center" title="Sign out" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 </button>
             </form>
         </div>

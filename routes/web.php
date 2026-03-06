@@ -33,6 +33,7 @@ use App\Http\Controllers\Auth\SsoController;
 use App\Http\Controllers\Settings\SsoConfigController;
 use App\Http\Controllers\Settings\BillingController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\ProfileController;
 
 // Payment webhooks — outside auth (Stripe/Razorpay POST without session, verified by signature)
 Route::post('/webhooks/stripe',    [WebhookController::class, 'stripe'])->name('webhooks.stripe');
@@ -68,6 +69,10 @@ Route::post('/reset-password', [ForgotPasswordController::class, 'reset'])->name
 Route::middleware(['auth'])->group(function () {
     Route::get('/', fn() => redirect('/dashboard'));
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Profile (all authenticated users)
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
     // Hiring (hr_manager, hiring_manager, management, org_admin, super_admin)
     Route::middleware(['role:hr_manager,hiring_manager,management,org_admin,super_admin'])->group(function () {

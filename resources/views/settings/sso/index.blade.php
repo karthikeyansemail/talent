@@ -90,14 +90,16 @@ $providers = [
 
                 {{-- Enable toggle --}}
                 <div class="form-group" style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-                    <label class="toggle-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
-                        <div style="position:relative;width:44px;height:24px">
-                            <input type="checkbox" name="is_enabled" value="1" {{ $setting?->is_enabled ? 'checked' : '' }} style="opacity:0;width:0;height:0;position:absolute" onchange="this.parentElement.nextElementSibling.querySelector('.toggle-track').style.background=this.checked?'var(--primary)':'var(--gray-300)';this.parentElement.querySelector('.toggle-thumb').style.transform=this.checked?'translateX(20px)':'translateX(2px)'">
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+                        <div style="position:relative;width:44px;height:24px" id="toggle-wrap-{{ $providerKey }}">
+                            <input type="checkbox" name="is_enabled" value="1" {{ $setting?->is_enabled ? 'checked' : '' }}
+                                   style="opacity:0;width:0;height:0;position:absolute"
+                                   onchange="var w=document.getElementById('toggle-wrap-{{ $providerKey }}');w.querySelector('.toggle-track').style.background=this.checked?'var(--primary)':'var(--gray-300)';w.querySelector('.toggle-thumb').style.transform=this.checked?'translateX(20px)':'translateX(2px)'">
                             <div class="toggle-track" style="position:absolute;inset:0;border-radius:24px;background:{{ $setting?->is_enabled ? 'var(--primary)' : 'var(--gray-300)' }};transition:background 0.2s"></div>
                             <div class="toggle-thumb" style="position:absolute;top:2px;left:0;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:transform 0.2s;transform:{{ $setting?->is_enabled ? 'translateX(20px)' : 'translateX(2px)' }}"></div>
                         </div>
+                        <span style="font-size:14px;font-weight:500">Enable {{ $meta['label'] }} SSO</span>
                     </label>
-                    <span style="font-size:14px;font-weight:500">Enable {{ $meta['label'] }} SSO</span>
                 </div>
 
                 {{-- Credential fields --}}
@@ -108,11 +110,15 @@ $providers = [
                         <input
                             type="{{ ($field['secret'] ?? false) ? 'password' : 'text' }}"
                             name="{{ $field['key'] }}"
-                            class="form-control"
+                            class="form-control @error($field['key'], $providerKey) is-invalid @enderror"
                             placeholder="{{ $field['placeholder'] }}"
                             autocomplete="off"
+                            @if(!($field['secret'] ?? false)) value="{{ $setting?->{$field['key']} ?? '' }}" @endif
                         >
-                        @if($field['secret'] ?? false)
+                        @error($field['key'], $providerKey)
+                        <p style="font-size:12px;color:var(--danger,#dc2626);margin:4px 0 0">{{ $message }}</p>
+                        @enderror
+                        @if(($field['secret'] ?? false) && !$errors->{$providerKey}->has($field['key']))
                         <p style="font-size:11px;color:var(--gray-400);margin:4px 0 0">Leave blank to keep existing value</p>
                         @endif
                     </div>
@@ -128,10 +134,13 @@ $providers = [
                         <input
                             type="text"
                             name="extra_config[{{ $ef['key'] }}]"
-                            class="form-control"
+                            class="form-control @error('extra_config.'.$ef['key'], $providerKey) is-invalid @enderror"
                             placeholder="{{ $ef['placeholder'] }}"
                             value="{{ $setting?->extra_config[$ef['key']] ?? '' }}"
                         >
+                        @error('extra_config.'.$ef['key'], $providerKey)
+                        <p style="font-size:12px;color:var(--danger,#dc2626);margin:4px 0 0">{{ $message }}</p>
+                        @enderror
                     </div>
                     @endforeach
                 </div>
