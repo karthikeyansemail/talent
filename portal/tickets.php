@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/bootstrap.php';
-require_admin();
+require_role('admin', 'support');
 $pageTitle = 'Tickets';
 
 $db = db();
@@ -47,8 +47,111 @@ $stmt = $db->prepare(
 $stmt->execute($params);
 $tickets = $stmt->fetchAll();
 
+// Load customers for modal
+$customerList = $db->query('SELECT id, name, email FROM customers ORDER BY name')->fetchAll();
+
+$ticketErrors    = [];
+$ticketModalOpen = false;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create_ticket') {
+    $customerId  = (int)($_POST['customer_id'] ?? 0);
+    $subject     = trim($_POST['subject'] ?? '');
+    $priority    = $_POST['priority'] ?? 'normal';
+    $ticketType  = $_POST['ticket_type'] ?? 'general';
+    $firstMsg    = trim($_POST['first_message'] ?? '');
+
+    if (!$customerId)  $ticketErrors[] = 'Customer is required.';
+    if (!$subject)     $ticketErrors[] = 'Subject is required.';
+    if (!in_array($priority, ['low','normal','high','urgent'], true)) $ticketErrors[] = 'Invalid priority.';
+    if (!in_array($ticketType, ['general','billing','software_bug','tech_support'], true)) $ticketErrors[] = 'Invalid type.';
+
+    if (empty($ticketErrors)) {
+        $db->prepare(
+            'INSERT INTO tickets (customer_id, subject, priority, ticket_type, status) VALUES (?,?,?,?,?)'
+        )->execute([$customerId, $subject, $priority, $ticketType, 'open']);
+        $ticketId = (int)$db->lastInsertId();
+        if ($firstMsg) {
+            $db->prepare(
+                'INSERT INTO ticket_messages (ticket_id, sender_type, sender_id, body) VALUES (?,?,?,?)'
+            )->execute([$ticketId, 'admin', $_SESSION['admin_id'], $firstMsg]);
+        }
+        flash('success', 'Ticket #' . $ticketId . ' created.');
+        header('Location: ' . BASE . '/ticket-view.php?id=' . $ticketId);
+        exit;
+    }
+    $ticketModalOpen = true;
+}
+
 include __DIR__ . '/includes/layout-start.php';
 ?>
+
+<!-- Modal: New Ticket -->
+<div class="modal-overlay hidden" id="ticket-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">New Ticket</h2>
+            <button class="modal-close" onclick="closeTicketModal()">&times;</button>
+        </div>
+        <?php if (!empty($ticketErrors)): ?>
+        <div class="alert alert-error" style="margin:16px 24px 0">
+            <?php foreach ($ticketErrors as $e): ?><div><?= h($e) ?></div><?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+        <form method="POST">
+            <input type="hidden" name="action" value="create_ticket">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Customer *</label>
+                    <select name="customer_id" class="form-control" required>
+                        <option value="">Select customer…</option>
+                        <?php foreach ($customerList as $c): ?>
+                        <option value="<?= $c['id'] ?>" <?= ($_POST['customer_id'] ?? '') == $c['id'] ? 'selected' : '' ?>>
+                            <?= h($c['name']) ?> &lt;<?= h($c['email']) ?>&gt;
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Subject *</label>
+                    <input type="text" name="subject" class="form-control" required autofocus value="<?= h($_POST['subject'] ?? '') ?>">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select name="ticket_type" class="form-control">
+                            <?php foreach (['general'=>'General','billing'=>'Billing','software_bug'=>'Software Bug','tech_support'=>'Tech Support'] as $v => $l): ?>
+                            <option value="<?= $v ?>" <?= ($_POST['ticket_type'] ?? 'general') === $v ? 'selected' : '' ?>><?= $l ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select name="priority" class="form-control">
+                            <?php foreach (['low'=>'Low','normal'=>'Normal','high'=>'High','urgent'=>'Urgent'] as $v => $l): ?>
+                            <option value="<?= $v ?>" <?= ($_POST['priority'] ?? 'normal') === $v ? 'selected' : '' ?>><?= $l ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Initial Message <span style="color:var(--gray-400);font-size:12px">(optional)</span></label>
+                    <textarea name="first_message" class="form-control" rows="3" placeholder="Describe the issue…"><?= h($_POST['first_message'] ?? '') ?></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeTicketModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Ticket</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openTicketModal()  { document.getElementById('ticket-modal').classList.remove('hidden'); }
+function closeTicketModal() { document.getElementById('ticket-modal').classList.add('hidden'); }
+document.getElementById('ticket-modal').addEventListener('click', function(e) { if (e.target === this) closeTicketModal(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeTicketModal(); });
+<?php if ($ticketModalOpen): ?>document.addEventListener('DOMContentLoaded', openTicketModal);<?php endif; ?>
+</script>
 
 <div class="filter-bar">
     <form method="GET" class="filter-form">
@@ -68,7 +171,10 @@ include __DIR__ . '/includes/layout-start.php';
         <button type="submit" class="btn btn-primary">Filter</button>
         <a href="<?= BASE ?>/tickets.php" class="btn btn-secondary">Clear</a>
     </form>
-    <div class="filter-count"><?= $totalRows ?> ticket<?= $totalRows !== 1 ? 's' : '' ?></div>
+    <div style="display:flex;align-items:center;gap:12px">
+        <div class="filter-count"><?= $totalRows ?> ticket<?= $totalRows !== 1 ? 's' : '' ?></div>
+        <button class="btn btn-primary" onclick="openTicketModal()">+ New Ticket</button>
+    </div>
 </div>
 
 <div class="card">

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= h($pageTitle ?? 'Portal') ?> — Nalam Pulse</title>
-<link rel="stylesheet" href="<?= BASE ?>/css/style.css">
+<link rel="stylesheet" href="<?= BASE ?>/css/style.css?v=<?= filemtime(__DIR__ . '/../css/style.css') ?>">
 <link rel="icon" type="image/svg+xml" href="https://nalampulse.com/favicon.svg">
 </head>
 <body>
@@ -28,12 +28,33 @@
                 Dashboard
             </a>
 
-            <div class="sidebar-section">Sales</div>
-            <a href="<?= BASE ?>/orders.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'orders') ? 'active' : '' ?>">
+            <?php if (has_role('admin', 'sales')): ?>
+            <div class="sidebar-section">Marketing</div>
+            <a href="<?= BASE ?>/campaigns.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'campaign') ? 'active' : '' ?>">
                 <span class="nav-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 </span>
-                Orders
+                Campaigns
+            </a>
+            <a href="<?= BASE ?>/leads.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'lead') ? 'active' : '' ?>">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+                </span>
+                Leads
+            </a>
+
+            <div class="sidebar-section">Sales</div>
+            <a href="<?= BASE ?>/appointments.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'appointment') ? 'active' : '' ?>">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                </span>
+                Appointments
+            </a>
+            <a href="<?= BASE ?>/pipeline.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'pipeline') ? 'active' : '' ?>">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </span>
+                Pipeline
             </a>
             <a href="<?= BASE ?>/customers.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'customers') ? 'active' : '' ?>">
                 <span class="nav-icon">
@@ -41,9 +62,17 @@
                 </span>
                 Customers
             </a>
+            <a href="<?= BASE ?>/orders.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'orders') ? 'active' : '' ?>">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                </span>
+                Orders
+            </a>
+            <?php endif; ?>
 
+            <?php if (has_role('admin', 'support')): ?>
             <div class="sidebar-section">Support</div>
-            <a href="<?= BASE ?>/tickets.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'ticket') ? 'active' : '' ?>">
+            <a href="<?= BASE ?>/tickets.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'ticket') && !str_contains($_SERVER['PHP_SELF'], 'dev-ticket') ? 'active' : '' ?>">
                 <span class="nav-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 </span>
@@ -55,6 +84,45 @@
                 </span>
                 Chat
             </a>
+            <?php endif; ?>
+
+            <?php if (has_role('admin', 'dev')): ?>
+            <div class="sidebar-section">Dev Tools</div>
+            <a href="<?= BASE ?>/errors.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'error') ? 'active' : '' ?>">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </span>
+                Error Logs
+            </a>
+            <a href="<?= BASE ?>/dev-tickets.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'dev-ticket') ? 'active' : '' ?>">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </span>
+                Dev Tickets
+            </a>
+            <a href="<?= BASE ?>/instances.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'instance') ? 'active' : '' ?>">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                </span>
+                Instances
+            </a>
+            <?php endif; ?>
+
+            <?php if (has_role('admin')): ?>
+            <div class="sidebar-section">Settings</div>
+            <a href="<?= BASE ?>/users.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'user') ? 'active' : '' ?>">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                </span>
+                Users
+            </a>
+            <a href="<?= BASE ?>/integrations.php" class="sidebar-link <?= str_contains($_SERVER['PHP_SELF'], 'integration') ? 'active' : '' ?>">
+                <span class="nav-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </span>
+                Integrations
+            </a>
+            <?php endif; ?>
         </nav>
 
         <div class="sidebar-footer">
@@ -63,7 +131,8 @@
                 <div class="user-avatar"><?= strtoupper(substr($me['name'] ?? 'A', 0, 2)) ?></div>
                 <div class="user-info">
                     <div class="user-name"><?= h($me['name'] ?? 'Admin') ?></div>
-                    <div class="user-role"><?= h($me['email'] ?? '') ?></div>
+                    <div class="user-email"><?= h($me['email'] ?? '') ?></div>
+                    <div class="user-role-label"><?= role_badge($me['role'] ?? 'admin') ?></div>
                 </div>
             </div>
             <a href="<?= BASE ?>/logout.php" class="logout-link" title="Sign out">

@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$email || !$password) {
         $error = 'Email and password are required.';
     } else {
-        $stmt = db()->prepare('SELECT id, name, email, password FROM admin_users WHERE email = ? AND is_active = 1');
+        $stmt = db()->prepare('SELECT id, name, email, password, role FROM admin_users WHERE email = ? AND is_active = 1');
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             $_SESSION['admin_id']   = $user['id'];
             $_SESSION['admin_name'] = $user['name'];
+            $_SESSION['admin_role'] = $user['role'];
             header('Location: ' . BASE . '/dashboard.php');
             exit;
         } else {

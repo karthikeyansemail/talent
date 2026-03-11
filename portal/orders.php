@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/bootstrap.php';
-require_admin();
+require_role('admin', 'sales');
 $pageTitle = 'Orders';
 
 $db = db();
@@ -52,23 +52,204 @@ $stmt = $db->prepare(
 $stmt->execute($params);
 $orders = $stmt->fetchAll();
 
-// Handle status change (quick action)
+// Load customer list for the create-order modal
+$allCustomers = $db->query('SELECT id, name, email, company FROM customers ORDER BY name')->fetchAll();
+
+$orderErrors     = [];
+$orderModalOpen  = false;
+$preCustomerId   = (int)($_GET['customer_id'] ?? 0);
+$preLeadId       = (int)($_GET['lead_id']     ?? 0);
+$prePlan         = $_GET['plan'] ?? 'cloud_enterprise';
+
+// Handle POST actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'change_status') {
-        $id     = (int)$_POST['order_id'];
-        $status = $_POST['new_status'];
+        $id      = (int)$_POST['order_id'];
+        $status  = $_POST['new_status'];
         $allowed = ['pending','active','cancelled','expired','refunded'];
         if (in_array($status, $allowed, true)) {
             $db->prepare('UPDATE orders SET status=? WHERE id=?')->execute([$status, $id]);
             flash('success', 'Order status updated.');
         }
+        header('Location: ' . BASE . '/orders.php?' . http_build_query($_GET));
+        exit;
     }
-    header('Location: ' . BASE . '/orders.php?' . http_build_query($_GET));
-    exit;
+
+    if ($_POST['action'] === 'create_order') {
+        $customerId    = (int)($_POST['customer_id'] ?? 0);
+        $plan          = $_POST['plan'] ?? 'cloud_enterprise';
+        $amount        = (float)($_POST['amount'] ?? 0);
+        $currency      = $_POST['currency'] ?? 'USD';
+        $billingPeriod = $_POST['billing_period'] ?? 'annual';
+        $gateway       = trim($_POST['payment_gateway'] ?? '');
+        $txnId         = trim($_POST['gateway_txn_id'] ?? '');
+        $orderStatus   = $_POST['order_status'] ?? 'active';
+        $startsAt      = $_POST['starts_at'] ?? date('Y-m-d');
+        $expiresAt     = $_POST['expires_at'] ?? '';
+        $fromLeadId    = (int)($_POST['lead_id'] ?? 0);
+
+        if (!$customerId) $orderErrors[] = 'Customer is required.';
+        if ($amount <= 0 && $plan !== 'free') $orderErrors[] = 'Amount must be greater than zero for paid plans.';
+        if (!in_array($plan, ['free','cloud_enterprise','self_hosted'], true)) $orderErrors[] = 'Invalid plan.';
+        if (!in_array($currency, ['USD','INR'], true)) $orderErrors[] = 'Invalid currency.';
+        if (!in_array($orderStatus, ['pending','active','cancelled','expired','refunded'], true)) $orderErrors[] = 'Invalid status.';
+
+        if (empty($orderErrors)) {
+            $db->prepare(
+                'INSERT INTO orders (customer_id, plan, amount, currency, billing_period, payment_gateway, gateway_txn_id, status, starts_at, expires_at)
+                 VALUES (?,?,?,?,?,?,?,?,?,?)'
+            )->execute([
+                $customerId, $plan, $amount, $currency, $billingPeriod,
+                $gateway ?: null, $txnId ?: null, $orderStatus,
+                $startsAt ?: null, $expiresAt ?: null,
+            ]);
+            $orderId = (int)$db->lastInsertId();
+            if ($fromLeadId) {
+                $db->prepare('INSERT INTO lead_activities (lead_id, user_id, type, description) VALUES (?,?,?,?)')
+                   ->execute([$fromLeadId, $_SESSION['admin_id'], 'note',
+                     "Order #{$orderId} created — " . plan_label($plan) . " ({$currency} {$amount})"]);
+            }
+            flash('success', 'Order #' . $orderId . ' created.');
+            if ($plan === 'self_hosted' && $orderStatus === 'active') {
+                header('Location: ' . BASE . '/instances.php?provision=1&order_id=' . $orderId . '&customer_id=' . $customerId);
+            } else {
+                header('Location: ' . BASE . '/orders.php');
+            }
+            exit;
+        }
+        $orderModalOpen = true; // re-open modal on validation errors
+    }
 }
 
 include __DIR__ . '/includes/layout-start.php';
 ?>
+
+<!-- Modal: Create Order -->
+<div class="modal-overlay hidden" id="order-modal">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title">Create Order</h2>
+            <button class="modal-close" onclick="closeOrderModal()">&times;</button>
+        </div>
+        <?php if (!empty($orderErrors)): ?>
+        <div class="alert alert-error" style="margin:16px 24px 0">
+            <?php foreach ($orderErrors as $e): ?><div><?= h($e) ?></div><?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+        <form method="POST">
+            <input type="hidden" name="action" value="create_order">
+            <?php if ($preLeadId): ?><input type="hidden" name="lead_id" value="<?= $preLeadId ?>"><?php endif; ?>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Customer *</label>
+                    <select name="customer_id" class="form-control" required>
+                        <option value="">Select customer…</option>
+                        <?php foreach ($allCustomers as $c): ?>
+                        <option value="<?= $c['id'] ?>"
+                            <?= ($preCustomerId && $preCustomerId == $c['id']) || ($_POST['customer_id'] ?? '') == $c['id'] ? 'selected' : '' ?>>
+                            <?= h($c['name']) ?><?= $c['company'] ? ' — ' . h($c['company']) : '' ?> &lt;<?= h($c['email']) ?>&gt;
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Plan *</label>
+                    <select name="plan" class="form-control" id="ord-plan" onchange="onOrderPlanChange(this.value)">
+                        <option value="free"             <?= ($prePlan === 'free'             || ($_POST['plan'] ?? '') === 'free')             ? 'selected' : '' ?>>Free</option>
+                        <option value="cloud_enterprise" <?= ($prePlan === 'cloud_enterprise' || ($_POST['plan'] ?? '') === 'cloud_enterprise') ? 'selected' : '' ?>>Cloud Enterprise</option>
+                        <option value="self_hosted"      <?= ($prePlan === 'self_hosted'      || ($_POST['plan'] ?? '') === 'self_hosted')      ? 'selected' : '' ?>>Self-Hosted Enterprise</option>
+                    </select>
+                </div>
+
+                <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px" id="ord-amount-row">
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <input type="number" name="amount" id="ord-amount" class="form-control" min="0" step="0.01" value="<?= h($_POST['amount'] ?? '0') ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Currency</label>
+                        <select name="currency" class="form-control">
+                            <option value="USD" <?= ($_POST['currency'] ?? 'USD') === 'USD' ? 'selected' : '' ?>>USD</option>
+                            <option value="INR" <?= ($_POST['currency'] ?? '') === 'INR' ? 'selected' : '' ?>>INR</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Billing</label>
+                        <select name="billing_period" class="form-control">
+                            <?php foreach (['monthly'=>'Monthly','quarterly'=>'Quarterly','annual'=>'Annual','one_time'=>'One-time'] as $v => $l): ?>
+                            <option value="<?= $v ?>" <?= ($_POST['billing_period'] ?? 'annual') === $v ? 'selected' : '' ?>><?= $l ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="form-group">
+                        <label>Payment Gateway</label>
+                        <select name="payment_gateway" class="form-control">
+                            <option value="">None / Manual</option>
+                            <?php foreach (['stripe'=>'Stripe','razorpay'=>'Razorpay','bank_transfer'=>'Bank Transfer','cash'=>'Cash'] as $v => $l): ?>
+                            <option value="<?= $v ?>" <?= ($_POST['payment_gateway'] ?? '') === $v ? 'selected' : '' ?>><?= $l ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Transaction ID</label>
+                        <input type="text" name="gateway_txn_id" class="form-control" placeholder="TXN / Invoice #" value="<?= h($_POST['gateway_txn_id'] ?? '') ?>">
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="order_status" class="form-control">
+                            <?php foreach (['pending'=>'Pending','active'=>'Active','cancelled'=>'Cancelled'] as $v => $l): ?>
+                            <option value="<?= $v ?>" <?= ($_POST['order_status'] ?? 'active') === $v ? 'selected' : '' ?>><?= $l ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Starts</label>
+                        <input type="date" name="starts_at" class="form-control" value="<?= h($_POST['starts_at'] ?? date('Y-m-d')) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Expires</label>
+                        <input type="date" name="expires_at" class="form-control" value="<?= h($_POST['expires_at'] ?? '') ?>">
+                    </div>
+                </div>
+
+                <div id="ord-selfhosted-note" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:13px;color:#1e40af">
+                    <strong>Self-Hosted plan:</strong> After saving you'll be taken to instance provisioning.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeOrderModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Order</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openOrderModal()  { document.getElementById('order-modal').classList.remove('hidden'); onOrderPlanChange(document.getElementById('ord-plan').value); }
+function closeOrderModal() { document.getElementById('order-modal').classList.add('hidden'); }
+document.getElementById('order-modal').addEventListener('click', function(e) { if (e.target === this) closeOrderModal(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeOrderModal(); });
+function onOrderPlanChange(plan) {
+    var row  = document.getElementById('ord-amount-row');
+    var amt  = document.getElementById('ord-amount');
+    var note = document.getElementById('ord-selfhosted-note');
+    row.style.opacity = plan === 'free' ? '0.4' : '1';
+    if (plan === 'free') amt.value = '0';
+    note.style.display = plan === 'self_hosted' ? 'block' : 'none';
+}
+<?php if ($orderModalOpen || $preCustomerId): ?>document.addEventListener('DOMContentLoaded', openOrderModal);<?php endif; ?>
+</script>
+
+<div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+    <button class="btn btn-primary" onclick="openOrderModal()">+ Create Order</button>
+</div>
 
 <!-- Filters -->
 <div class="filter-bar">
@@ -121,15 +302,25 @@ include __DIR__ . '/includes/layout-start.php';
             <td class="td-secondary"><?= h($o['billing_period'] ?? '—') ?></td>
             <td class="td-secondary"><?= date('d M Y', strtotime($o['created_at'])) ?></td>
             <td>
-                <form method="POST" style="display:inline">
-                    <input type="hidden" name="action" value="change_status">
-                    <input type="hidden" name="order_id" value="<?= $o['id'] ?>">
-                    <select name="new_status" class="form-control form-control-xs" onchange="this.form.submit()">
-                        <?php foreach (['pending','active','cancelled','expired','refunded'] as $s): ?>
-                        <option value="<?= $s ?>" <?= $o['status'] === $s ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </form>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                    <form method="POST" style="display:inline">
+                        <input type="hidden" name="action" value="change_status">
+                        <input type="hidden" name="order_id" value="<?= $o['id'] ?>">
+                        <select name="new_status" class="form-control form-control-xs" onchange="this.form.submit()">
+                            <?php foreach (['pending','active','cancelled','expired','refunded'] as $s): ?>
+                            <option value="<?= $s ?>" <?= $o['status'] === $s ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </form>
+                    <?php if ($o['plan'] === 'self_hosted' && $o['status'] === 'active' && empty($o['instance_id'])): ?>
+                    <a href="<?= BASE ?>/instances.php?provision=1&order_id=<?= $o['id'] ?>&customer_id=<?= $o['customer_id'] ?>"
+                       class="btn btn-sm btn-primary" style="white-space:nowrap" title="Provision self-hosted instance for this customer">
+                        Provision Instance
+                    </a>
+                    <?php elseif (!empty($o['instance_id'])): ?>
+                    <a href="<?= BASE ?>/instances.php" class="td-secondary" style="font-size:11px" title="Instance registered">&#x2713; Instance</a>
+                    <?php endif; ?>
+                </div>
             </td>
         </tr>
         <?php endforeach; ?>

@@ -188,7 +188,13 @@ a { color: inherit; text-decoration: none; }
 }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 
-.content { padding: 24px; flex: 1; }
+.content { padding: 24px; flex: 1; overflow-x: auto; }
+
+/* ── KPI / Stat Cards ───────────────────────────────────────────────────── */
+.kpi-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.kpi-card { flex: 1; min-width: 110px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow); }
+.kpi-value { font-size: 28px; font-weight: 700; color: var(--gray-900); line-height: 1.1; }
+.kpi-label { font-size: 12px; color: var(--gray-500); margin-top: 4px; font-weight: 500; }
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
 
@@ -456,3 +462,57 @@ body.login-body {
     margin-bottom: 24px;
 }
 .login-form .form-group { margin-bottom: 16px; }
+
+/* Stack trace (error detail) */
+.stack-trace { background: var(--gray-900); color: #e5e7eb; padding: 16px; border-radius: var(--radius); font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; line-height: 1.7; overflow: auto; white-space: pre-wrap; max-height: 500px; }
+
+/* Health dots (instances) */
+.health-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+.health-green { background: var(--success); }
+.health-yellow { background: var(--warning); }
+.health-red { background: var(--danger); }
+.health-gray { background: var(--gray-400); }
+
+/* JSON viewer */
+.json-view { background: var(--gray-50); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; overflow: auto; white-space: pre-wrap; max-height: 300px; }
+
+/* Info table (key-value pairs in detail views) */
+.info-table { width: 100%; font-size: 13px; }
+.info-table td { padding: 6px 0; vertical-align: top; }
+.info-table td:first-child { color: var(--gray-500); white-space: nowrap; padding-right: 16px; width: 120px; }
+
+/* Pipeline badges */
+.pipeline-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+
+/* Three-col dashboard grid */
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+@media (max-width: 1200px) { .three-col { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .three-col { grid-template-columns: 1fr; } }
+
+/* Activity timeline */
+.activity-timeline { list-style: none; padding: 0; margin: 0; }
+.activity-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.activity-item:last-child { border-bottom: none; }
+.activity-type { font-weight: 600; text-transform: capitalize; }
+.activity-time { color: var(--gray-400); font-size: 12px; }
+
+/* API key display */
+.api-key-display { background: var(--gray-900); color: #10b981; padding: 12px 16px; border-radius: var(--radius); font-family: 'Consolas', monospace; font-size: 13px; word-break: break-all; user-select: all; }
+
+/* 403 page */
+.forbidden-page { display: flex; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
+.forbidden-code { font-size: 72px; font-weight: 800; color: var(--gray-200); }
+.forbidden-title { font-size: 20px; font-weight: 600; color: var(--gray-900); margin: 8px 0; }
+.forbidden-msg { color: var(--gray-500); font-size: 14px; margin-bottom: 20px; }
+
+/* ── Modal ─────────────────────────────────────────────────────────────────── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.modal-overlay.hidden { display: none; }
+.modal { background: var(--surface); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); width: 100%; max-width: 560px; max-height: 90vh; display: flex; flex-direction: column; }
+.modal-lg { max-width: 720px; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+.modal-title { font-size: 16px; font-weight: 700; color: var(--gray-900); margin: 0; }
+.modal-close { background: none; border: none; cursor: pointer; color: var(--gray-400); font-size: 20px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.modal-close:hover { background: var(--gray-100); color: var(--gray-700); }
+.modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
