@@ -640,34 +640,40 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         </div>
-        <div class="chat-body">
-            <div class="chat-welcome-msg">
-                <p>👋 Hi there! Have questions about Nalam Pulse?</p>
-                <p>Drop us a message and we'll get back to you right away.</p>
-            </div>
-            <form id="chat-form" class="chat-form" novalidate>
-                <div class="chat-field">
-                    <input type="text" id="chat-name" name="name" placeholder="Your name *" required autocomplete="name">
+        <div class="chat-body" id="chat-body">
+
+            <!-- Phase 1: Name + email intro -->
+            <div id="chat-intro">
+                <div class="chat-welcome-msg">
+                    <p>👋 Hi there! Have questions about Nalam Pulse?</p>
+                    <p>Enter your details and we'll connect you with our team right away.</p>
                 </div>
-                <div class="chat-field">
-                    <input type="email" id="chat-email" name="email" placeholder="Email address *" required autocomplete="email">
-                </div>
-                <div class="chat-field">
-                    <textarea id="chat-message" name="message" placeholder="Your message..." rows="4" required></textarea>
-                </div>
-                <button type="submit" class="chat-send-btn" id="chat-submit">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    Send Message
-                </button>
-            </form>
-            <div class="chat-success" id="chat-success" style="display:none">
-                <div class="success-icon">✓</div>
-                <p><strong>Message sent!</strong></p>
-                <p>We'll reach out to you soon.</p>
+                <form id="chat-form" class="chat-form" novalidate>
+                    <div class="chat-field">
+                        <input type="text" id="chat-name" name="name" placeholder="Your name *" required autocomplete="name">
+                    </div>
+                    <div class="chat-field">
+                        <input type="email" id="chat-email" name="email" placeholder="Email address *" required autocomplete="email">
+                    </div>
+                    <div id="chat-error" class="chat-form-error" style="display:none"></div>
+                    <button type="submit" class="chat-send-btn" id="chat-submit">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        Start Chat
+                    </button>
+                </form>
             </div>
-            <div class="chat-error" id="chat-error" style="display:none">
-                <p>Something went wrong. Email us at <a href="mailto:hello@nalampulse.com">hello@nalampulse.com</a></p>
+
+            <!-- Phase 2: Live two-way chat -->
+            <div id="chat-live" style="display:none;flex-direction:column;height:100%">
+                <div id="chat-messages" class="chat-messages-list"></div>
+                <div class="chat-input-bar">
+                    <textarea id="chat-input" class="chat-input-field" placeholder="Type a message…" rows="1"></textarea>
+                    <button id="chat-send" type="button" class="chat-input-send" title="Send">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
             </div>
+
         </div>
     </div>
     <button class="chat-trigger-btn" id="chat-trigger" aria-label="Open chat">
@@ -677,6 +683,7 @@
     </button>
 </div>
 
+<script>var PORTAL_API = '/talent/portal/api';</script>
 <script src="js/main.js"></script>
 </body>
 </html>

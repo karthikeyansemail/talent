@@ -255,6 +255,24 @@ include __DIR__ . '/includes/layout-start.php';
 </script>
 <?php endif; ?>
 
+<?php if (!$selectedId): ?>
+<script>
+// No session selected — auto-refresh page every 15s to show new incoming sessions
+(function() {
+    var countdown = 15;
+    setInterval(function() {
+        countdown--;
+        if (countdown <= 0) location.reload();
+    }, 1000);
+})();
+</script>
+<?php elseif ($currentSession && $currentSession['status'] === 'closed'): ?>
+<script>
+// Session closed — still refresh session list every 20s
+setInterval(function() { location.reload(); }, 20000);
+</script>
+<?php endif; ?>
+
 <style>
 .chat-msg-visitor,
 .chat-msg-agent {

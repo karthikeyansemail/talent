@@ -124,18 +124,42 @@
     labelUSD.classList.add('active');
 
     /* ===== CHAT WIDGET ===== */
-    var chatTrigger = document.getElementById('chat-trigger');
-    var chatPanel = document.getElementById('chat-panel');
-    var chatClose = document.getElementById('chat-close');
-    var chatForm = document.getElementById('chat-form');
-    var chatSubmit = document.getElementById('chat-submit');
-    var chatSuccess = document.getElementById('chat-success');
-    var chatError = document.getElementById('chat-error');
-    var chatIconOpen = document.querySelector('.chat-icon-open');
+    var chatTrigger   = document.getElementById('chat-trigger');
+    var chatPanel     = document.getElementById('chat-panel');
+    var chatClose     = document.getElementById('chat-close');
+    var chatForm      = document.getElementById('chat-form');
+    var chatSubmit    = document.getElementById('chat-submit');
+    var chatError     = document.getElementById('chat-error');
+    var chatIntro     = document.getElementById('chat-intro');
+    var chatLive      = document.getElementById('chat-live');
+    var chatMessages  = document.getElementById('chat-messages');
+    var chatInput     = document.getElementById('chat-input');
+    var chatSendBtn   = document.getElementById('chat-send');
+    var chatIconOpen  = document.querySelector('.chat-icon-open');
     var chatIconClose = document.querySelector('.chat-icon-close');
     var chatTriggerLabel = document.querySelector('.chat-trigger-label');
 
-    var chatOpen = false;
+    var chatOpen  = false;
+    var pollTimer = null;
+
+    // Session state
+    var sessionId = null;
+    var token     = null;
+    var lastMsgId = 0;
+
+    var PORTAL = (typeof PORTAL_API !== 'undefined') ? PORTAL_API : '/portal/api';
+
+    function loadSession() {
+        try {
+            var s = JSON.parse(sessionStorage.getItem('np_chat_session') || 'null');
+            if (s && s.sessionId && s.token) {
+                sessionId = s.sessionId; token = s.token; lastMsgId = s.lastMsgId || 0;
+            }
+        } catch(e) {}
+    }
+    function saveSession() {
+        try { sessionStorage.setItem('np_chat_session', JSON.stringify({ sessionId: sessionId, token: token, lastMsgId: lastMsgId })); } catch(e) {}
+    }
 
     function openChat() {
         chatOpen = true;
@@ -144,6 +168,11 @@
         if (chatIconOpen) chatIconOpen.style.display = 'none';
         if (chatIconClose) chatIconClose.style.display = '';
         if (chatTriggerLabel) chatTriggerLabel.textContent = 'Close';
+        loadSession();
+        if (sessionId && token) {
+            showLiveChat();
+            fetchHistory();
+        }
     }
 
     function closeChat() {
@@ -153,72 +182,151 @@
         if (chatIconOpen) chatIconOpen.style.display = '';
         if (chatIconClose) chatIconClose.style.display = 'none';
         if (chatTriggerLabel) chatTriggerLabel.textContent = 'Chat with us';
+        stopPolling();
+    }
+
+    function showLiveChat() {
+        chatIntro.style.display = 'none';
+        chatLive.style.display  = 'flex';
+        chatPanel.classList.add('live');
+    }
+
+    function appendBubble(senderType, senderName, body, msgId) {
+        var isVisitor = senderType === 'visitor';
+        var wrap = document.createElement('div');
+        wrap.className = 'chat-bubble-wrap ' + (isVisitor ? 'from-visitor' : 'from-agent');
+        if (!isVisitor) {
+            var nameEl = document.createElement('div');
+            nameEl.className = 'chat-bubble-sender';
+            nameEl.textContent = senderName || 'Support';
+            wrap.appendChild(nameEl);
+        }
+        var bubble = document.createElement('div');
+        bubble.className = 'chat-bubble';
+        bubble.textContent = body;
+        wrap.appendChild(bubble);
+        chatMessages.appendChild(wrap);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if (msgId && msgId > lastMsgId) { lastMsgId = msgId; saveSession(); }
+    }
+
+    function fetchHistory() {
+        fetch(PORTAL + '/chat-poll.php?session_id=' + sessionId + '&token=' + encodeURIComponent(token) + '&since=0')
+        .then(function(r){ return r.json(); })
+        .then(function(res) {
+            if (res.messages) res.messages.forEach(function(m) { appendBubble(m.sender_type, m.sender_name, m.body, m.id); });
+            if (res.session_status !== 'closed') startPolling();
+        }).catch(function(){});
+    }
+
+    function poll() {
+        if (!sessionId || !token) return;
+        fetch(PORTAL + '/chat-poll.php?session_id=' + sessionId + '&token=' + encodeURIComponent(token) + '&since=' + lastMsgId)
+        .then(function(r){ return r.json(); })
+        .then(function(res) {
+            if (res.messages) res.messages.forEach(function(m) {
+                if (m.sender_type === 'agent') appendBubble(m.sender_type, m.sender_name, m.body, m.id);
+                else if (m.id > lastMsgId) { lastMsgId = m.id; saveSession(); }
+            });
+            if (res.session_status === 'closed') {
+                stopPolling();
+                var closed = document.createElement('div');
+                closed.style.cssText = 'text-align:center;padding:10px;font-size:12px;color:#9ca3af';
+                closed.textContent = 'Session ended. Email us at hello@nalampulse.com';
+                chatMessages.appendChild(closed);
+                if (chatSendBtn) chatSendBtn.disabled = true;
+                if (chatInput)  chatInput.disabled    = true;
+            }
+        }).catch(function(){});
+    }
+
+    function startPolling() { stopPolling(); pollTimer = setInterval(poll, 4000); }
+    function stopPolling()  { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+    function sendMessage() {
+        var msg = chatInput ? chatInput.value.trim() : '';
+        if (!msg || !sessionId) return;
+        chatInput.value = '';
+        chatInput.style.height = '';
+        appendBubble('visitor', 'You', msg, 0);
+        fetch(PORTAL + '/chat-send.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, token: token, body: msg })
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(res) { if (res.message_id && res.message_id > lastMsgId) { lastMsgId = res.message_id; saveSession(); } })
+        .catch(function(){});
     }
 
     // expose for footer link
     window.openChat = openChat;
 
-    if (chatTrigger) {
-        chatTrigger.addEventListener('click', function () {
-            chatOpen ? closeChat() : openChat();
-        });
-    }
-    if (chatClose) {
-        chatClose.addEventListener('click', function () { closeChat(); });
-    }
+    if (chatTrigger) { chatTrigger.addEventListener('click', function () { chatOpen ? closeChat() : openChat(); }); }
+    if (chatClose)   { chatClose.addEventListener('click', function () { closeChat(); }); }
 
     // Open chat from "Contact Sales" pricing button
     document.querySelectorAll('.chat-open-btn').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            openChat();
-        });
+        btn.addEventListener('click', function (e) { e.preventDefault(); openChat(); });
     });
 
     // Open chat from nav contact link
     var navChatLink = document.querySelector('.nav-chat-link');
     if (navChatLink) {
         navChatLink.addEventListener('click', function (e) {
-            e.preventDefault();
-            openChat();
-            navLinks.classList.remove('open');
+            e.preventDefault(); openChat();
+            if (navLinks) navLinks.classList.remove('open');
         });
     }
 
-    // Chat form submission
+    // Phase 1: Start chat (name + email → init session)
     if (chatForm) {
         chatForm.addEventListener('submit', function (e) {
             e.preventDefault();
-
-            var name = document.getElementById('chat-name').value.trim();
+            var name  = document.getElementById('chat-name').value.trim();
             var email = document.getElementById('chat-email').value.trim();
-            var message = document.getElementById('chat-message').value.trim();
-
-            if (!name || !email || !message) return;
-
+            if (chatError) chatError.style.display = 'none';
+            if (!name)  { showError('Name is required.'); return; }
+            if (!email) { showError('Email is required.'); return; }
             chatSubmit.disabled = true;
-            chatSubmit.textContent = 'Sending...';
-
-            fetch('api/chat.php', {
+            chatSubmit.textContent = 'Connecting…';
+            fetch(PORTAL + '/chat-init.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name, email: email, message: message })
+                body: JSON.stringify({ name: name, email: email })
             })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.success) {
-                    chatForm.style.display = 'none';
-                    chatSuccess.style.display = 'block';
-                    if (chatError) chatError.style.display = 'none';
-                } else {
-                    throw new Error(data.error || 'Failed');
-                }
-            })
-            .catch(function () {
-                if (chatError) chatError.style.display = 'block';
+            .then(function(r){ return r.json(); })
+            .then(function(res) {
                 chatSubmit.disabled = false;
-                chatSubmit.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send Message';
+                chatSubmit.textContent = 'Start Chat';
+                if (res.error) { showError(res.error); return; }
+                sessionId = res.session_id; token = res.token; lastMsgId = 0;
+                saveSession();
+                chatMessages.innerHTML = '';
+                showLiveChat();
+                fetchHistory();
+            })
+            .catch(function() {
+                chatSubmit.disabled = false;
+                chatSubmit.textContent = 'Start Chat';
+                showError('Could not connect. Please try again.');
             });
+        });
+    }
+
+    function showError(msg) {
+        if (chatError) { chatError.textContent = msg; chatError.style.display = 'block'; }
+    }
+
+    // Phase 2: Send message
+    if (chatSendBtn) { chatSendBtn.addEventListener('click', sendMessage); }
+    if (chatInput) {
+        chatInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        });
+        chatInput.addEventListener('input', function() {
+            this.style.height = '';
+            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
         });
     }
 
