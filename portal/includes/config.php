@@ -35,6 +35,9 @@ define('STRIPE_PRICE_SELF_HOSTED',   'price_XXXX');   // $999 one-time
 define('RAZORPAY_KEY_ID',     'rzp_live_YOUR_KEY_ID_HERE');
 define('RAZORPAY_KEY_SECRET', 'YOUR_RAZORPAY_SECRET_HERE');
 
+// ── AI (Claude) — for chat reply suggestions ──────────────────────────────────
+define('ANTHROPIC_API_KEY', '');   // Set to your sk-ant-... key to enable AI suggestions
+
 // ── App settings ──────────────────────────────────────────────────────────────
 define('APP_NAME',    'Nalam Pulse Portal');
 define('APP_URL',     'https://portal.nalampulse.com');

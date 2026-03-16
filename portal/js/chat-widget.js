@@ -23,6 +23,23 @@
   var pollTimer = null;
   var open      = false;
 
+  // --- Sound ---
+  var audioCtx = null;
+  function playAgentMessageSound() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var ctx = audioCtx; var t = ctx.currentTime;
+      [[1100, 0, 0.18, 0.22], [880, 0.2, 0.14, 0.3]].forEach(function(f) {
+        var osc = ctx.createOscillator(); var g = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.frequency.value = f[0]; osc.type = 'sine';
+        g.gain.setValueAtTime(f[2], t + f[1]);
+        g.gain.exponentialRampToValueAtTime(0.001, t + f[1] + f[3]);
+        osc.start(t + f[1]); osc.stop(t + f[1] + f[3] + 0.05);
+      });
+    } catch(e) {}
+  }
+
   // --- Persist session across page loads ---
   function loadSession() {
     try {
@@ -225,7 +242,9 @@
     apiGet('/api/chat-poll.php?session_id=' + sessionId + '&token=' + encodeURIComponent(token) + '&since=' + lastMsgId, function (err, res) {
       if (err || !res) return;
       if (res.messages && res.messages.length) {
+        var hadAgentMsg = res.messages.some(function(m){ return m.sender_type === 'agent'; });
         res.messages.forEach(appendMessage);
+        if (hadAgentMsg) playAgentMessageSound();
       }
       if (res.session_status === 'closed') {
         stopPolling();

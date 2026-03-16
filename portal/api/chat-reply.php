@@ -19,13 +19,15 @@ if (!$agent) { http_response_code(401); echo json_encode(['error' => 'Unauthoriz
 if (!has_role('admin', 'support')) { http_response_code(403); echo json_encode(['error' => 'Forbidden']); exit; }
 
 try {
-    $body      = json_decode(file_get_contents('php://input'), true) ?? [];
-    $sessionId = (int)($body['session_id'] ?? 0);
-    $message   = trim($body['body'] ?? '');
+    $body           = json_decode(file_get_contents('php://input'), true) ?? [];
+    $sessionId      = (int)($body['session_id'] ?? 0);
+    $message        = trim($body['body'] ?? '');
+    $attachUrl      = trim($body['attachment_url']  ?? '') ?: null;
+    $attachType     = trim($body['attachment_type'] ?? '') ?: null;
 
     if (!$sessionId) { http_response_code(400); echo json_encode(['error' => 'session_id required']); exit; }
-    if (!$message)   { http_response_code(400); echo json_encode(['error' => 'body required']); exit; }
-    if (strlen($message) > 4000) { http_response_code(400); echo json_encode(['error' => 'Message too long']); exit; }
+    if (!$message && !$attachUrl) { http_response_code(400); echo json_encode(['error' => 'body or attachment required']); exit; }
+    if ($message && strlen($message) > 4000) { http_response_code(400); echo json_encode(['error' => 'Message too long']); exit; }
 
     $db = db();
 
@@ -36,8 +38,8 @@ try {
 
     $agentName = $agent['name'] ?? 'Support';
 
-    $db->prepare('INSERT INTO chat_messages (session_id, sender_type, sender_name, body) VALUES (?,?,?,?)')
-       ->execute([$sessionId, 'agent', $agentName, $message]);
+    $db->prepare('INSERT INTO chat_messages (session_id, sender_type, sender_name, body, attachment_url, attachment_type) VALUES (?,?,?,?,?,?)')
+       ->execute([$sessionId, 'agent', $agentName, $message, $attachUrl, $attachType]);
 
     $msgId = (int)$db->lastInsertId();
 
