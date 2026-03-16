@@ -279,38 +279,41 @@
         });
     }
 
-    // Phase 1: Start chat (name + email → init session)
+    // Phase 1: Start chat — triggered by button click or Enter key
+    function startChat() {
+        var name  = document.getElementById('chat-name').value.trim();
+        var email = document.getElementById('chat-email').value.trim();
+        if (chatError) chatError.style.display = 'none';
+        if (!name)  { showError('Name is required.'); return; }
+        if (!email) { showError('Email is required.'); return; }
+        if (chatSubmit) { chatSubmit.disabled = true; chatSubmit.textContent = 'Connecting\u2026'; }
+        fetch(PORTAL + '/chat-init.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, email: email })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (chatSubmit) { chatSubmit.disabled = false; chatSubmit.textContent = 'Start Chat'; }
+            if (res.error) { showError(res.error); return; }
+            sessionId = res.session_id;
+            token     = res.token;
+            lastMsgId = 0;
+            saveSession();
+            chatMessages.innerHTML = '';
+            showLiveChat();
+            fetchHistory();
+        })
+        .catch(function() {
+            if (chatSubmit) { chatSubmit.disabled = false; chatSubmit.textContent = 'Start Chat'; }
+            showError('Could not connect. Please try again.');
+        });
+    }
+
+    if (chatSubmit) { chatSubmit.addEventListener('click', startChat); }
     if (chatForm) {
-        chatForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var name  = document.getElementById('chat-name').value.trim();
-            var email = document.getElementById('chat-email').value.trim();
-            if (chatError) chatError.style.display = 'none';
-            if (!name)  { showError('Name is required.'); return; }
-            if (!email) { showError('Email is required.'); return; }
-            chatSubmit.disabled = true;
-            chatSubmit.textContent = 'Connecting…';
-            fetch(PORTAL + '/chat-init.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name, email: email })
-            })
-            .then(function(r){ return r.json(); })
-            .then(function(res) {
-                chatSubmit.disabled = false;
-                chatSubmit.textContent = 'Start Chat';
-                if (res.error) { showError(res.error); return; }
-                sessionId = res.session_id; token = res.token; lastMsgId = 0;
-                saveSession();
-                chatMessages.innerHTML = '';
-                showLiveChat();
-                fetchHistory();
-            })
-            .catch(function() {
-                chatSubmit.disabled = false;
-                chatSubmit.textContent = 'Start Chat';
-                showError('Could not connect. Please try again.');
-            });
+        chatForm.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); startChat(); }
         });
     }
 
