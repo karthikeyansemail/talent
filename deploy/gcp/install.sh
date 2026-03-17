@@ -41,7 +41,8 @@ print_header "Nalam Pulse — GCP Installer"
 echo -e "${YELLOW}Answer a few questions to configure your deployment:${NC}\n"
 
 INSTANCE_TYPE=$(ask_default "Instance type (demo/production)" "demo")
-DOMAIN=$(ask "Domain name (e.g. demo.nalampulse.com)")
+SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
+DOMAIN=$(ask_default "Domain name" "${SERVER_IP}")
 DB_PASSWORD=$(ask_default "Database password" "NalamPulse$(openssl rand -hex 4)")
 echo ""
 
@@ -178,8 +179,9 @@ print_step "AI service .env created"
 print_header "Step 4/6 — Building Docker Images (this takes 3-5 minutes)"
 
 cd "$APP_DIR"
-sudo docker compose -f deploy/gcp/docker-compose.build.yml down 2>/dev/null || true
-sudo docker compose -f deploy/gcp/docker-compose.build.yml up -d --build
+COMPOSE="docker compose --env-file deploy/gcp/.env -f deploy/gcp/docker-compose.build.yml"
+sudo $COMPOSE down 2>/dev/null || true
+sudo $COMPOSE up -d --build
 
 print_step "Docker containers started"
 
@@ -212,16 +214,16 @@ print_step "All containers healthy"
 print_header "Step 5/6 — Setting Up Database"
 
 if [[ "$SEED_DATA" == true ]]; then
-    sudo docker compose -f deploy/gcp/docker-compose.build.yml exec -T app php artisan db:seed --force
+    sudo $COMPOSE exec -T app php artisan db:seed --force
     print_step "Demo data seeded (Acme Technologies + sample users)"
 
     # Also run ExpandDemoDataSeeder if it exists
-    sudo docker compose -f deploy/gcp/docker-compose.build.yml exec -T app php artisan db:seed --class=ExpandDemoDataSeeder --force 2>/dev/null || true
+    sudo $COMPOSE exec -T app php artisan db:seed --class=ExpandDemoDataSeeder --force 2>/dev/null || true
     print_step "Extended demo data loaded"
 else
     # Production: create super admin only
     ADMIN_PASS=$(ask_default "Super admin password" "NalamAdmin2026!")
-    sudo docker compose -f deploy/gcp/docker-compose.build.yml exec -T app php artisan tinker --execute="
+    sudo $COMPOSE exec -T app php artisan tinker --execute="
         \$u = \App\Models\User::create([
             'name' => 'Platform Admin',
             'email' => 'admin@nalampulse.com',
@@ -292,9 +294,6 @@ fi
 # ─── Done ─────────────────────────────────────────────────────────────────────
 print_header "Installation Complete!"
 
-# Get server IP
-SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
-
 echo -e "  ${GREEN}Server IP:${NC}  ${SERVER_IP}"
 echo -e "  ${GREEN}Domain:${NC}     ${DOMAIN}"
 echo -e "  ${GREEN}HTTP:${NC}       http://${SERVER_IP}"
@@ -322,9 +321,10 @@ echo -e "  ${YELLOW}DNS:${NC} Point ${DOMAIN} A record → ${SERVER_IP}"
 echo ""
 echo -e "  ${YELLOW}Useful commands:${NC}"
 echo "  cd /opt/nalam"
-echo "  sudo docker compose -f deploy/gcp/docker-compose.build.yml logs -f        # View logs"
-echo "  sudo docker compose -f deploy/gcp/docker-compose.build.yml restart app    # Restart app"
-echo "  sudo docker compose -f deploy/gcp/docker-compose.build.yml down && sudo docker compose -f deploy/gcp/docker-compose.build.yml up -d  # Full restart"
+echo "  export DC='docker compose --env-file deploy/gcp/.env -f deploy/gcp/docker-compose.build.yml'"
+echo "  sudo \$DC logs -f        # View logs"
+echo "  sudo \$DC restart app    # Restart app"
+echo "  sudo \$DC down && sudo \$DC up -d  # Full restart"
 echo ""
 echo -e "  ${GREEN}AI Settings:${NC} Configure OpenAI/Azure keys via Settings → AI Configuration in the app"
 echo ""
