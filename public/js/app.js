@@ -61,6 +61,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize interview scheduling modal (triggered from stage changes)
     initInterviewSchedulingModal();
+
+    // Initialize clickable table rows
+    initClickableRows();
 });
 
 // Modal
@@ -2613,4 +2616,19 @@ function initSimEmployeeSearch() {
             searchInput.focus();
         });
     }
+}
+
+// ============================================================
+// Clickable Table Rows — rows with data-href navigate on click
+// ============================================================
+
+function initClickableRows() {
+    document.querySelectorAll('tr[data-href]').forEach(function(row) {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', function(e) {
+            // Don't navigate if clicking on interactive elements
+            if (e.target.closest('a, button, input, select, textarea, form, .expand-toggle')) return;
+            window.location.href = this.dataset.href;
+        });
+    });
 }

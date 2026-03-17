@@ -115,6 +115,84 @@ class LLMClient:
     # JSON generation helper
     # ------------------------------------------------------------------
 
+    async def generate_with_image(self, prompt: str, system_message: str, image_base64: str) -> str:
+        """Send a prompt with an image to the LLM (Vision capability)."""
+        try:
+            if self.provider in ("openai", "azure_openai"):
+                messages: list[dict] = []
+                if system_message:
+                    messages.append({"role": "system", "content": system_message})
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_base64}",
+                                "detail": "high",
+                            },
+                        },
+                    ],
+                })
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=0.1,
+                    max_tokens=4096,
+                )
+                return response.choices[0].message.content or ""
+            else:
+                # Anthropic vision
+                kwargs: dict = {
+                    "model": self.model,
+                    "max_tokens": 4096,
+                    "temperature": 0.1,
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": image_base64,
+                                },
+                            },
+                            {"type": "text", "text": prompt},
+                        ],
+                    }],
+                }
+                if system_message:
+                    kwargs["system"] = system_message
+                response = await self.client.messages.create(**kwargs)
+                parts: list[str] = []
+                for block in response.content:
+                    if hasattr(block, "text"):
+                        parts.append(block.text)
+                return "".join(parts)
+        except Exception:
+            logger.exception("Vision LLM generation failed (provider=%s)", self.provider)
+            raise
+
+    async def generate_json_with_image(self, prompt: str, system_message: str, image_base64: str) -> dict:
+        """Generate a JSON response from a prompt + image."""
+        raw = await self.generate_with_image(prompt, system_message, image_base64)
+        code_block_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", raw, re.DOTALL)
+        json_text = code_block_match.group(1).strip() if code_block_match else raw.strip()
+        try:
+            parsed = json.loads(json_text)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            brace_match = re.search(r"\{[\s\S]*\}", json_text)
+            if brace_match:
+                try:
+                    return json.loads(brace_match.group(0))
+                except json.JSONDecodeError:
+                    pass
+            logger.error("Failed to parse vision LLM response as JSON:\n%s", raw[:500])
+            return {}
+
     async def generate_json(self, prompt: str, system_message: str = "") -> dict:
         """Generate a response and parse it as JSON.
 

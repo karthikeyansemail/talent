@@ -65,7 +65,7 @@ $qs = request()->only(['search', 'status', 'department_id']);
         </thead>
         <tbody>
         @forelse($jobs as $job)
-        <tr>
+        <tr data-href="{{ route('jobs.show', $job) }}">
             <td><a href="{{ route('jobs.show', $job) }}" class="name-link">{{ $job->title }}</a></td>
             <td>{{ $job->department?->name ?? '-' }}</td>
             <td>{{ ucwords(str_replace('_', ' ', $job->employment_type)) }}</td>

@@ -40,6 +40,33 @@
     } catch(e) {}
   }
 
+  // --- Browser notifications ---
+  var notifEnabled = false;
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      notifEnabled = true;
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then(function(p) { notifEnabled = p === 'granted'; });
+    }
+  }
+
+  function showAgentNotif(name, body) {
+    if (!notifEnabled || document.hasFocus()) return;
+    try {
+      var n = new Notification(name || 'Support', {
+        body: body && body.length > 100 ? body.substring(0, 97) + '…' : (body || 'New message'),
+        tag: 'np-chat-agent',
+        requireInteraction: false
+      });
+      n.onclick = function() {
+        window.focus();
+        if (!open) openWidget();
+        n.close();
+      };
+      setTimeout(function() { n.close(); }, 8000);
+    } catch(e) {}
+  }
+
   // --- Persist session across page loads ---
   function loadSession() {
     try {
@@ -242,8 +269,14 @@
     apiGet('/api/chat-poll.php?session_id=' + sessionId + '&token=' + encodeURIComponent(token) + '&since=' + lastMsgId, function (err, res) {
       if (err || !res) return;
       if (res.messages && res.messages.length) {
-        var hadAgentMsg = res.messages.some(function(m){ return m.sender_type === 'agent'; });
-        res.messages.forEach(appendMessage);
+        var hadAgentMsg = false;
+        res.messages.forEach(function(m) {
+          appendMessage(m);
+          if (m.sender_type === 'agent') {
+            hadAgentMsg = true;
+            showAgentNotif(m.sender_name, m.body);
+          }
+        });
         if (hadAgentMsg) playAgentMessageSound();
       }
       if (res.session_status === 'closed') {

@@ -47,7 +47,7 @@
         <thead><tr><th>Name</th><th>Email</th><th>Department</th><th>Designation</th><th>Skills</th><th></th></tr></thead>
         <tbody>
         @forelse($employees as $emp)
-        <tr>
+        <tr data-href="{{ route('employees.show', $emp) }}">
             <td><a href="{{ route('employees.show', $emp) }}" class="name-link">{{ $emp->full_name }}</a></td>
             <td>{{ $emp->email }}</td>
             <td>{{ $emp->department?->name ?? '-' }}</td>

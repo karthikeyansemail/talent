@@ -181,12 +181,13 @@ include __DIR__ . '/includes/layout-start.php';
                 <textarea id="reply-input" class="form-control" rows="2" placeholder="Type your reply… (Enter to send, Shift+Enter for new line)" style="flex:1;resize:none"></textarea>
                 <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
                     <button id="reply-btn" class="btn btn-primary btn-sm">Send</button>
-                    <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0" title="Attach image/video/file">
-                        📎 <input type="file" id="attach-input" accept="image/*,video/*,.pdf" style="display:none">
+                    <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0;display:flex;align-items:center;justify-content:center" title="Attach image/video/file">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                        <input type="file" id="attach-input" accept="image/*,video/*,.pdf" style="display:none">
                     </label>
                 </div>
             </div>
-            <div id="attach-preview" style="display:none;margin-top:8px;font-size:12px;color:var(--gray-600);display:flex;align-items:center;gap:8px">
+            <div id="attach-preview" style="display:none;margin-top:8px;font-size:12px;color:var(--gray-600);align-items:center;gap:8px">
                 <span id="attach-name"></span>
                 <button type="button" onclick="clearAttach()" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px">✕</button>
             </div>
@@ -221,7 +222,7 @@ include __DIR__ . '/includes/layout-start.php';
                     'Docs'      => 'You can find detailed documentation at docs.nalampulse.com. Let me know if you need help finding something specific.',
                     'Escalate'  => 'I\'m escalating this to our technical team. You\'ll hear back within 24 hours. I\'ll keep you updated.',
                 ] as $label => $text): ?>
-                <button class="quick-insert-btn" onclick="insertReply(<?= json_encode($text) ?>)"><?= $label ?></button>
+                <button class="quick-insert-btn" data-t="<?= h($text) ?>"><?= $label ?></button>
                 <?php endforeach; ?>
             </div>
         </div>
@@ -243,6 +244,37 @@ include __DIR__ . '/includes/layout-start.php';
     var btn        = document.getElementById('reply-btn');
     var attachInput = document.getElementById('attach-input');
     var pendingAttach = null; // { url, type, filename }
+
+    // ── Browser notifications ─────────────────────────────────────────────
+    var notifEnabled = false;
+    if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+            notifEnabled = true;
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(function(p) { notifEnabled = p === 'granted'; });
+        }
+    }
+
+    function showNotification(title, body, targetSessionId) {
+        if (!notifEnabled || document.hasFocus()) return;
+        try {
+            var n = new Notification(title, {
+                body: body.length > 120 ? body.substring(0, 117) + '…' : body,
+                icon: '<?= BASE ?>/assets/img/logo-icon.png',
+                tag: 'chat-' + (targetSessionId || sessionId),
+                requireInteraction: false
+            });
+            n.onclick = function() {
+                window.focus();
+                var sid = targetSessionId || sessionId;
+                if (sid !== sessionId) {
+                    window.location.href = '?session=' + sid;
+                }
+                n.close();
+            };
+            setTimeout(function() { n.close(); }, 8000);
+        } catch(e) {}
+    }
 
     // ── Sound system ──────────────────────────────────────────────────────
     var soundEnabled = true;
@@ -413,9 +445,12 @@ include __DIR__ . '/includes/layout-start.php';
             if (res.error) { area.innerHTML = '<p style="font-size:12px;color:var(--danger);padding:10px">' + esc(res.error) + '</p>'; return; }
             var html = '';
             (res.suggestions || []).forEach(function(s) {
-                html += '<button class="suggestion-btn" onclick="insertReply(' + JSON.stringify(s) + ')">' + esc(s) + '</button>';
+                html += '<button class="suggestion-btn" data-t="' + esc(s) + '">' + esc(s) + '</button>';
             });
             area.innerHTML = html || '<p style="font-size:12px;color:var(--gray-400);padding:10px">No suggestions.</p>';
+            area.querySelectorAll('.suggestion-btn').forEach(function(b) {
+                b.addEventListener('click', function() { insertReply(b.dataset.t); });
+            });
         })
         .catch(function() {
             if (sugBtn) sugBtn.disabled = false;
@@ -429,6 +464,11 @@ include __DIR__ . '/includes/layout-start.php';
             input.focus();
         }
     };
+
+    // Wire quick-insert buttons (static, rendered by PHP)
+    document.querySelectorAll('.quick-insert-btn').forEach(function(b) {
+        b.addEventListener('click', function() { insertReply(b.dataset.t); });
+    });
 
     // ── Poll for new visitor messages ─────────────────────────────────────
     var autoSuggestTimer = null;
@@ -444,6 +484,11 @@ include __DIR__ . '/includes/layout-start.php';
                         appendMsg(m.sender_type, m.sender_name || 'Visitor', m.body, m.id,
                             m.attachment_url, m.attachment_type, null);
                         playMessageSound();
+                        showNotification(
+                            (m.sender_name || 'Visitor') + ' sent a message',
+                            m.body || '📎 Attachment',
+                            sessionId
+                        );
                         newVisitorMsg = true;
                     } else if (m.id > lastId) {
                         lastId = m.id;
@@ -473,6 +518,34 @@ include __DIR__ . '/includes/layout-start.php';
     var status     = <?= json_encode($filterStatus) ?>;
     var selectedId = <?= $selectedId ?>;
     var soundEn    = function() { return window.soundEnabled !== false; };
+
+    // ── Browser notifications for new sessions ────────────────────────────
+    var notifOk = false;
+    if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+            notifOk = true;
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(function(p) { notifOk = p === 'granted'; });
+        }
+    }
+
+    function showSessionNotif(name, email, sid) {
+        if (!notifOk || document.hasFocus()) return;
+        try {
+            var n = new Notification('New chat from ' + name, {
+                body: email + ' started a conversation',
+                icon: BASE + '/assets/img/logo-icon.png',
+                tag: 'new-session-' + sid,
+                requireInteraction: false
+            });
+            n.onclick = function() {
+                window.focus();
+                window.location.href = '?session=' + sid;
+                n.close();
+            };
+            setTimeout(function() { n.close(); }, 10000);
+        } catch(e) {}
+    }
 
     function playNewSessionSound() {
         if (!soundEn()) return;
@@ -513,6 +586,12 @@ include __DIR__ . '/includes/layout-start.php';
                 var badge = document.getElementById('new-session-badge');
                 if (badge) badge.style.display = 'inline';
                 setTimeout(function(){ if (badge) badge.style.display = 'none'; }, 5000);
+                // Browser notification for each new session
+                data.sessions.forEach(function(s) {
+                    if (knownIds.indexOf(s.id) === -1) {
+                        showSessionNotif(s.name, s.email, s.id);
+                    }
+                });
             }
 
             // Rebuild session list DOM

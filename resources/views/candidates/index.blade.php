@@ -74,7 +74,7 @@ $qs = request()->only(['search', 'job_id', 'experience', 'title', 'skill']);
         </thead>
         <tbody>
         @forelse($candidates as $c)
-        <tr>
+        <tr data-href="{{ route('candidates.show', $c) }}">
             <td>
                 <a href="{{ route('candidates.show', $c) }}" class="name-link" style="display:block">{{ $c->full_name }}</a>
                 <span style="font-size:12px;color:var(--gray-400)">{{ $c->email }}</span>

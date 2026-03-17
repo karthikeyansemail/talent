@@ -126,6 +126,22 @@ document.getElementById('btn-start-interview').addEventListener('click', functio
 
 {{-- ===== STATE: IN PROGRESS — live interview room ===== --}}
 @if($session->status === 'in_progress')
+@php
+    $asrConfig = auth()->user()->currentOrganization()?->asr_config ?? [];
+    $asrProvider = $asrConfig['provider'] ?? 'whisper';
+    $asrRegion = $asrConfig['azure_speech_region'] ?? '';
+    $phraseHints = $asrConfig['phrase_hints'] ?? '';
+    // Add job-specific skills as phrase hints
+    $jobSkills = $session->application->jobPosting->required_skills ?? [];
+    if (count($jobSkills)) {
+        $phraseHints = $phraseHints ? $phraseHints . ',' . implode(',', $jobSkills) : implode(',', $jobSkills);
+    }
+    // Add candidate skills
+    $candSkills = $session->candidate->skills ?? [];
+    if (count($candSkills)) {
+        $phraseHints .= ',' . implode(',', array_slice($candSkills, 0, 20));
+    }
+@endphp
 <div id="interview-room"
      data-session-id="{{ $session->id }}"
      data-csrf="{{ csrf_token() }}"
@@ -138,6 +154,14 @@ document.getElementById('btn-start-interview').addEventListener('click', functio
      data-url-end="{{ route('interviews.end', $session) }}"
      data-url-summary="{{ route('interviews.summary', $session) }}"
      data-url-transcribe="{{ config('ai.service_url') }}/transcribe-audio"
+     data-url-asr-token="{{ route('settings.asr.token') }}"
+     data-url-correct-transcript="{{ url('interviews/' . $session->id . '/correct-transcript') }}"
+     data-asr-provider="{{ $asrProvider }}"
+     data-asr-region="{{ $asrRegion }}"
+     data-phrase-hints="{{ $phraseHints }}"
+     data-enable-diarization="{{ ($asrConfig['enable_diarization'] ?? false) ? '1' : '0' }}"
+     data-enable-screen-capture="{{ ($asrConfig['enable_screen_capture'] ?? false) ? '1' : '0' }}"
+     data-enable-llm-correction="{{ ($asrConfig['enable_llm_correction'] ?? false) ? '1' : '0' }}"
      data-started-at="{{ $session->started_at?->toISOString() }}">
 
     {{-- Topbar --}}
@@ -171,8 +195,14 @@ document.getElementById('btn-start-interview').addEventListener('click', functio
                         <span>System Audio: OFF</span>
                     </button>
                 </div>
-                <div style="font-size:12px; color:var(--gray-500); padding-top:4px;">
-                    Mic &rarr; Your voice &nbsp;|&nbsp; System Audio &rarr; Candidate's voice from meeting
+                <div class="ir-audio-controls__row" style="margin-top:8px;">
+                    <div class="ir-mode-toggle" id="interview-mode-toggle">
+                        <button class="ir-mode-btn ir-mode-btn--active" data-mode="one-to-one">1-on-1</button>
+                        <button class="ir-mode-btn" data-mode="panel">Panel</button>
+                    </div>
+                    <span style="font-size:12px; color:var(--gray-500); align-self:center;">
+                        <span id="mode-hint">Mic = You, System Audio = Candidate</span>
+                    </span>
                 </div>
             </div>
 
@@ -258,6 +288,9 @@ document.getElementById('btn-start-interview').addEventListener('click', functio
     </div>
 </div>
 
+@if($asrProvider === 'azure_speech')
+<script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
+@endif
 <script src="{{ asset('js/interview.js') }}"></script>
 @endif
 

@@ -1711,6 +1711,12 @@ select.form-control:focus {
     margin: 0;
 }
 
+/* ======================== KPI / Stat Cards ======================== */
+.kpi-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.kpi-card { flex: 1; min-width: 120px; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 16px 20px; }
+.kpi-value { font-size: 28px; font-weight: 700; color: var(--gray-900); line-height: 1.1; }
+.kpi-label { font-size: 12px; color: var(--gray-500); margin-top: 4px; font-weight: 500; }
+
 /* ======================== Filter Bar ======================== */
 .filter-bar {
     display: flex;
@@ -2570,6 +2576,13 @@ npre { background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8
 .ir-audio-btn--on { border-color: var(--success); background: var(--success-light); color: var(--success); }
 .ir-audio-btn--off { border-color: var(--gray-300); color: var(--gray-500); }
 
+/* Interview mode toggle (1-on-1 / Panel) */
+.ir-mode-toggle { display: inline-flex; border: 1px solid var(--gray-300); border-radius: var(--radius); overflow: hidden; }
+.ir-mode-btn { padding: 4px 14px; font-size: 12px; font-weight: 600; border: none; background: var(--white); color: var(--gray-500); cursor: pointer; transition: all 0.15s; }
+.ir-mode-btn:not(:last-child) { border-right: 1px solid var(--gray-300); }
+.ir-mode-btn--active { background: var(--primary); color: var(--white); }
+.ir-mode-btn:hover:not(.ir-mode-btn--active) { background: var(--gray-50); }
+
 /* Transcript Panel */
 .ir-transcript-panel { flex: 1; display: flex; flex-direction: column; background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); overflow: hidden; }
 .ir-transcript-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--gray-200); font-size: 13px; background: var(--gray-50); }
@@ -2581,6 +2594,7 @@ npre { background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8
 .ir-transcript-entry__speaker--candidate { color: var(--success); }
 .ir-transcript-entry__time { color: var(--gray-400); font-size: 11px; min-width: 50px; flex-shrink: 0; font-family: 'Courier New', monospace; }
 .ir-transcript-entry__text { flex: 1; }
+.ir-transcript-entry__text.ir-corrected { border-bottom: 1px dotted var(--info); }
 .ir-interim { padding: 6px 16px; font-size: 13px; color: var(--gray-400); font-style: italic; border-top: 1px dashed var(--gray-200); }
 
 /* Right Side Panels */
@@ -2701,6 +2715,10 @@ npre { background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8
     border-bottom-color: var(--primary);
     text-decoration: none;
 }
+
+/* Clickable table rows */
+tr[data-href] { cursor: pointer; }
+tr[data-href]:hover td { background: var(--gray-50); }
 
 /* Schedule Interview Modal — employee search dropdown above modal content */
 #scheduleInterviewModal .employee-search-results {

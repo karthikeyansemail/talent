@@ -201,6 +201,72 @@ class InterviewApiController extends Controller
         return response()->json(['status' => 'ok']);
     }
 
+    /**
+     * LLM-powered transcript correction — fixes domain-specific ASR errors.
+     */
+    public function correctTranscript(Request $request, InterviewSession $session)
+    {
+        $this->authorizeSession($session);
+
+        $request->validate([
+            'texts' => 'required|array|min:1|max:10',
+            'texts.*' => 'required|string|max:2000',
+            'vocabulary' => 'nullable|array',
+        ]);
+
+        $job = $session->application->jobPosting;
+
+        $client = new AiServiceClient();
+        $result = $client->post('/correct-transcript', [
+            'texts' => $request->texts,
+            'vocabulary' => $request->vocabulary ?? [],
+            'job_title' => $job->title,
+            'required_skills' => $job->required_skills ?? [],
+            'job_description' => mb_substr($job->description ?? '', 0, 500),
+        ], $session->organization_id);
+
+        if (isset($result['error'])) {
+            return response()->json(['corrections' => $request->texts]);
+        }
+
+        return response()->json([
+            'corrections' => $result['corrections'] ?? $request->texts,
+            'new_vocabulary' => $result['new_vocabulary'] ?? [],
+        ]);
+    }
+
+    /**
+     * Process a screenshot from screen share for code extraction.
+     */
+    public function processScreenshot(Request $request, InterviewSession $session)
+    {
+        $this->authorizeSession($session);
+
+        $request->validate([
+            'image' => 'required|string', // base64 JPEG
+            'offset_seconds' => 'required|integer|min:0',
+        ]);
+
+        $client = new AiServiceClient();
+        $result = $client->post('/extract-code-from-screenshot', [
+            'image' => $request->image,
+        ], $session->organization_id);
+
+        if (isset($result['error']) || empty($result['code'])) {
+            return response()->json(['code' => '']);
+        }
+
+        // Save as transcript entry
+        InterviewTranscript::create([
+            'interview_session_id' => $session->id,
+            'speaker' => 'candidate',
+            'text' => '[Screen Share Code] ' . $result['code'],
+            'offset_seconds' => $request->offset_seconds,
+        ]);
+
+        return response()->json(['code' => $result['code']]);
+    }
+
     private function authorizeSession(InterviewSession $session): void
     {
         if ($session->organization_id !== Auth::user()->currentOrganizationId()) {

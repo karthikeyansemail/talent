@@ -27,7 +27,7 @@
                 <span class="dash-stat__label">Candidates</span>
             </div>
         </a>
-        <a href="{{ route('applications.index') }}" class="dash-stat">
+        <a href="{{ route('jobs.index') }}" class="dash-stat">
             <div class="dash-stat__icon dash-stat__icon--warning">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             </div>
@@ -105,7 +105,7 @@
         <thead><tr><th>Candidate</th><th>Job</th><th>Stage</th><th>Applied</th><th></th></tr></thead>
         <tbody>
         @foreach($recentApplications as $app)
-        <tr>
+        <tr data-href="{{ route('applications.show', $app) }}">
             <td><a href="{{ route('candidates.show', $app->candidate_id) }}" class="name-link">{{ $app->candidate->full_name }}</a></td>
             <td><a href="{{ route('jobs.show', $app->job_posting_id) }}" class="name-link">{{ $app->jobPosting->title }}</a></td>
             <td>@include('components.stage-badge', ['stage' => $app->stage])</td>

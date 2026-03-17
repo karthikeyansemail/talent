@@ -146,13 +146,13 @@
     @php
         // Build a readable overview sentence from available data
         $ovParts = [];
-        if ($ti['completion_rate'] !== null) {
+        if (($ti['completion_rate'] ?? null) !== null) {
             $rStr = $ti['completion_rate'] . '%';
-            $prevStr = ($ti['completion_rate_prev'] !== null)
+            $prevStr = (($ti['completion_rate_prev'] ?? null) !== null)
                 ? ', up from ' . $ti['completion_rate_prev'] . '% last period'
                 : '';
-            if ($ti['completion_rate'] < $ti['completion_rate_prev'] ?? 101) {
-                $diff = ($ti['completion_rate_prev'] !== null) ? abs((int)($ti['completion_rate'] - $ti['completion_rate_prev'])) : null;
+            if ($ti['completion_rate'] < ($ti['completion_rate_prev'] ?? 101)) {
+                $diff = (($ti['completion_rate_prev'] ?? null) !== null) ? abs((int)($ti['completion_rate'] - $ti['completion_rate_prev'])) : null;
                 $prevStr = $diff !== null ? ', down ' . $diff . ' pts from last period' : '';
             }
             $ovParts[] = "completed tasks at {$rStr}{$prevStr}";
@@ -299,18 +299,18 @@
 {{-- ===== TASK PERFORMANCE ===== --}}
 @if($totalTasks > 0)
 @php
-    $completionTrend = ($ti['completion_rate'] !== null && $ti['completion_rate_prev'] !== null)
+    $completionTrend = (($ti['completion_rate'] ?? null) !== null && ($ti['completion_rate_prev'] ?? null) !== null)
         ? (int)($ti['completion_rate'] - $ti['completion_rate_prev']) : null;
-    $spTrend = ($ti['velocity_sp'] !== null && $ti['velocity_sp_prev'] !== null && $ti['velocity_sp_prev'] > 0)
+    $spTrend = (($ti['velocity_sp'] ?? null) !== null && ($ti['velocity_sp_prev'] ?? null) !== null && $ti['velocity_sp_prev'] > 0)
         ? (int) round(($ti['velocity_sp'] - $ti['velocity_sp_prev']) / $ti['velocity_sp_prev'] * 100) : null;
-    $ctTrendPct = ($ti['cycle_time_avg'] !== null && $ti['cycle_time_prev'] !== null && $ti['cycle_time_prev'] > 0)
+    $ctTrendPct = (($ti['cycle_time_avg'] ?? null) !== null && ($ti['cycle_time_prev'] ?? null) !== null && $ti['cycle_time_prev'] > 0)
         ? (int) round(($ti['cycle_time_avg'] - $ti['cycle_time_prev']) / $ti['cycle_time_prev'] * 100) : null;
 
     // Build task narrative sentences
     $taskSentences = [];
 
     // Completion sentence
-    if ($ti['completion_rate'] !== null) {
+    if (($ti['completion_rate'] ?? null) !== null) {
         $done  = $ti['done_current'] ?? 0;
         $total = $ti['total_current'] ?? $totalTasks;
         $rate  = $ti['completion_rate'];
@@ -323,7 +323,7 @@
     }
 
     // Cycle time sentence
-    if ($ti['cycle_time_avg'] !== null) {
+    if (($ti['cycle_time_avg'] ?? null) !== null) {
         $s = "Tasks averaged {$ti['cycle_time_avg']} days from creation to close";
         if ($ctTrendPct !== null) {
             $s .= $ctTrendPct < 0 ? ' — faster than last period' : ' — slower than last period';
@@ -332,7 +332,7 @@
     }
 
     // Story points + velocity
-    if ($ti['velocity_sp'] !== null) {
+    if (($ti['velocity_sp'] ?? null) !== null) {
         $sp = number_format($ti['velocity_sp'], 0);
         $s  = "{$sp} story points delivered";
         if ($spTrend !== null) {
@@ -343,7 +343,7 @@
     }
 
     // High priority
-    if ($ti['high_priority_done_rate'] !== null) {
+    if (($ti['high_priority_done_rate'] ?? null) !== null) {
         $taskSentences[] = $ti['high_priority_done_rate'] . '% of high-priority tasks were resolved.';
     }
 
@@ -360,7 +360,7 @@
     // Bugs
     if ($bugCount > 0) {
         $bugsDone = $allTasks->where('task_type','Bug')->where('status','Done')->count();
-        if ($ti['bug_resolution_rate'] !== null) {
+        if (($ti['bug_resolution_rate'] ?? null) !== null) {
             $taskSentences[] = "{$bugsDone} of {$bugCount} bugs resolved ({$ti['bug_resolution_rate']}%).";
         } else {
             $taskSentences[] = "{$bugCount} bug" . ($bugCount != 1 ? 's' : '') . " in the task set.";

@@ -142,6 +142,8 @@ Route::middleware(['auth'])->group(function () {
         Route::put('interviews/{session}/questions/{question}/status', [InterviewApiController::class, 'updateQuestionStatus'])->name('interviews.api.questionStatus');
         Route::get('interviews/{session}/state', [InterviewApiController::class, 'sessionState'])->name('interviews.api.state');
         Route::put('interviews/{session}/notes', [InterviewApiController::class, 'updateNotes'])->name('interviews.api.notes');
+        Route::post('interviews/{session}/correct-transcript', [InterviewApiController::class, 'correctTranscript'])->name('interviews.api.correctTranscript');
+        Route::post('interviews/{session}/screenshot', [InterviewApiController::class, 'processScreenshot'])->name('interviews.api.screenshot');
     });
 
     // Resource Allocation (resource_manager, org_admin, super_admin)
@@ -276,6 +278,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('llm', [LlmConfigController::class, 'edit'])->name('llm.edit');
         Route::put('llm', [LlmConfigController::class, 'update'])->name('llm.update');
         Route::post('llm/test', [LlmConfigController::class, 'test'])->name('llm.test');
+
+        // ASR / Speech Recognition Configuration
+        Route::get('asr', [\App\Http\Controllers\Settings\AsrConfigController::class, 'edit'])->name('asr.edit');
+        Route::put('asr', [\App\Http\Controllers\Settings\AsrConfigController::class, 'update'])->name('asr.update');
+        Route::post('asr/test', [\App\Http\Controllers\Settings\AsrConfigController::class, 'test'])->name('asr.test');
+        Route::post('asr/token', [\App\Http\Controllers\Settings\AsrConfigController::class, 'token'])->name('asr.token');
 
         Route::get('platform-branding', [PlatformBrandingController::class, 'edit'])->name('platformBranding');
         Route::put('platform-branding', [PlatformBrandingController::class, 'update'])->name('platformBranding.update');

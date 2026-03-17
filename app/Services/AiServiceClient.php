@@ -116,6 +116,11 @@ class AiServiceClient
         return $this->call('/generate-interview-summary', $data, $orgId);
     }
 
+    public function post(string $endpoint, array $data, ?int $orgId = null): array
+    {
+        return $this->call($endpoint, $data, $orgId);
+    }
+
     public function healthCheck(): array
     {
         try {

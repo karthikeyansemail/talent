@@ -43,6 +43,7 @@ from app.services.interview_assistant import (
     generate_interview_summary,
 )
 from app.services.audio_transcriber import transcribe_audio
+from app.services.transcript_corrector import correct_transcript, extract_code_from_screenshot
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -332,6 +333,39 @@ async def transcribe_audio_endpoint(file: UploadFile = File(...)) -> dict:
     except Exception as exc:
         logger.exception("Unhandled error in /transcribe-audio")
         raise HTTPException(status_code=500, detail="Transcription failed.") from exc
+
+
+# ---------------------------------------------------------------------------
+# Transcript Correction & Code Extraction
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/correct-transcript",
+    tags=["interview"],
+    summary="Fix domain-specific ASR errors using LLM and job context",
+)
+async def correct_transcript_endpoint(request: dict) -> dict:
+    """Accept transcript segments and return corrected versions."""
+    try:
+        return await correct_transcript(request)
+    except Exception as exc:
+        logger.exception("Unhandled error in /correct-transcript")
+        return {"corrections": request.get("texts", []), "new_vocabulary": []}
+
+
+@app.post(
+    "/extract-code-from-screenshot",
+    tags=["interview"],
+    summary="Extract code from a screen share screenshot using Vision AI",
+)
+async def extract_code_endpoint(request: dict) -> dict:
+    """Accept a base64 JPEG screenshot and return extracted code."""
+    try:
+        return await extract_code_from_screenshot(request)
+    except Exception as exc:
+        logger.exception("Unhandled error in /extract-code-from-screenshot")
+        return {"code": "", "language": "", "description": ""}
 
 
 # ---------------------------------------------------------------------------

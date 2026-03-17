@@ -31,5 +31,72 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Fire-and-forget error reporting to Nalam Pulse Portal
+        $exceptions->reportable(function (\Throwable $e) {
+            try {
+                $cfg = config('services.error_report');
+                if (empty($cfg['enabled']) || empty($cfg['url']) || empty($cfg['api_key'])) {
+                    return;
+                }
+
+                // Build payload
+                $user = null;
+                try {
+                    $authUser = auth()->user();
+                    if ($authUser) {
+                        $user = [
+                            'id'    => $authUser->id,
+                            'email' => $authUser->email,
+                            'org_id' => $authUser->organization_id ?? null,
+                        ];
+                    }
+                } catch (\Throwable $ignored) {}
+
+                $request = null;
+                try {
+                    $req = request();
+                    $request = [
+                        'url'    => $req->fullUrl(),
+                        'method' => $req->method(),
+                        'ip'     => $req->ip(),
+                        'input'  => $req->except(['password', 'password_confirmation', 'token', 'secret', '_token']),
+                    ];
+                } catch (\Throwable $ignored) {}
+
+                $payload = json_encode([
+                    'level'           => 'error',
+                    'message'         => mb_substr($e->getMessage(), 0, 5000),
+                    'exception_class' => get_class($e),
+                    'file'            => $e->getFile(),
+                    'line'            => $e->getLine(),
+                    'stack_trace'     => mb_substr($e->getTraceAsString(), 0, 10000),
+                    'url'             => $request['url'] ?? null,
+                    'method'          => $request['method'] ?? null,
+                    'user_info'       => $user,
+                    'request_data'    => $request,
+                    'environment'     => app()->environment(),
+                    'app_version'     => config('app.version', '1.0.0'),
+                    'php_version'     => PHP_VERSION,
+                ]);
+
+                // Raw cURL — most resilient, avoids framework dependencies
+                $ch = curl_init($cfg['url']);
+                curl_setopt_array($ch, [
+                    CURLOPT_POST           => true,
+                    CURLOPT_POSTFIELDS     => $payload,
+                    CURLOPT_HTTPHEADER     => [
+                        'Content-Type: application/json',
+                        'X-Api-Key: ' . $cfg['api_key'],
+                    ],
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT        => 2,
+                    CURLOPT_CONNECTTIMEOUT => 1,
+                    CURLOPT_SSL_VERIFYPEER => true,
+                ]);
+                curl_exec($ch);
+                curl_close($ch);
+            } catch (\Throwable $ignored) {
+                // Reporter failure must NEVER affect the application
+            }
+        })->stop(false); // Let Laravel's built-in logger still run
     })->create();

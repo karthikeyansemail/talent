@@ -58,4 +58,10 @@ return [
         'base_url'      => '',
     ],
 
+    'error_report' => [
+        'enabled' => env('ERROR_REPORT_ENABLED', false),
+        'url'     => env('ERROR_REPORT_URL'),
+        'api_key' => env('ERROR_REPORT_API_KEY'),
+    ],
+
 ];

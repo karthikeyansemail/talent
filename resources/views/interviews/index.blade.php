@@ -89,7 +89,7 @@
                     </thead>
                     <tbody>
                         @foreach($upcoming as $session)
-                        <tr>
+                        <tr data-href="{{ route('interviews.show', $session) }}">
                             <td>
                                 <strong>{{ $session->candidate->first_name }} {{ $session->candidate->last_name }}</strong>
                                 <br><small class="text-muted">{{ $session->candidate->email }}</small>
@@ -168,7 +168,7 @@
                     </thead>
                     <tbody>
                         @foreach($completed as $session)
-                        <tr data-outcome="{{ $session->outcome ?? 'pending' }}">
+                        <tr data-outcome="{{ $session->outcome ?? 'pending' }}" data-href="{{ route('interviews.summary', $session) }}">
                             <td>
                                 <strong>{{ $session->candidate->first_name }} {{ $session->candidate->last_name }}</strong>
                             </td>

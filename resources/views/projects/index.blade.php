@@ -24,7 +24,7 @@
         <thead><tr><th>Name</th><th>Complexity</th><th>Status</th><th>Skills</th><th>Matches</th><th>Dates</th><th></th></tr></thead>
         <tbody>
         @forelse($projects as $p)
-        <tr>
+        <tr data-href="{{ route('projects.show', $p) }}">
             <td><a href="{{ route('projects.show', $p) }}" class="name-link">{{ $p->name }}</a></td>
             <td>@include('components.stage-badge', ['stage' => $p->complexity_level])</td>
             <td>@include('components.stage-badge', ['stage' => $p->status])</td>

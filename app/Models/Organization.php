@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Organization extends Model
 {
     protected $fillable = [
-        'name', 'slug', 'domain', 'logo_path', 'settings', 'llm_config', 'is_active',
+        'name', 'slug', 'domain', 'logo_path', 'settings', 'llm_config', 'asr_config', 'is_active',
         'is_premium', 'premium_expires_at', 'premium_features',
         'subscription_plan', 'subscription_expires_at', 'support_expires_at',
         'stripe_customer_id', 'stripe_subscription_id', 'razorpay_subscription_id',
@@ -18,6 +18,7 @@ class Organization extends Model
         return [
             'settings' => 'array',
             'llm_config' => 'array',
+            'asr_config' => 'array',
             'is_active' => 'boolean',
             'is_premium' => 'boolean',
             'premium_expires_at' => 'datetime',
