@@ -54,13 +54,17 @@ return Application::configure(basePath: dirname(__DIR__))
 
                 $request = null;
                 try {
-                    $req = request();
-                    $request = [
-                        'url'    => $req->fullUrl(),
-                        'method' => $req->method(),
-                        'ip'     => $req->ip(),
-                        'input'  => $req->except(['password', 'password_confirmation', 'token', 'secret', '_token']),
-                    ];
+                    if (app()->runningInConsole()) {
+                        $request = ['url' => 'cli:' . implode(' ', $_SERVER['argv'] ?? []), 'method' => 'CLI', 'ip' => '127.0.0.1', 'input' => []];
+                    } else {
+                        $req = request();
+                        $request = [
+                            'url'    => $req->fullUrl(),
+                            'method' => $req->method(),
+                            'ip'     => $req->ip(),
+                            'input'  => $req->except(['password', 'password_confirmation', 'token', 'secret', '_token']),
+                        ];
+                    }
                 } catch (\Throwable $ignored) {}
 
                 $payload = json_encode([
