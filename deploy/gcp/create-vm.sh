@@ -68,13 +68,23 @@ gcloud compute instances create "${VM_NAME}" \
     --tags="${VM_NAME}" \
     --quiet 2>/dev/null || echo "  (VM exists)"
 
-echo "  Waiting 20s for VM to be ready..."
-sleep 20
+echo "  Waiting for VM SSH to be ready (up to 90s)..."
+TRIES=0
+while true; do
+    TRIES=$((TRIES+1))
+    if gcloud compute ssh "$VM_NAME" --zone="$ZONE" --command="echo ok" 2>/dev/null; then
+        break
+    fi
+    if [[ $TRIES -ge 15 ]]; then
+        echo -e "${RED}  SSH not ready after 90s. Try manually:${NC}"
+        echo "  gcloud compute ssh $VM_NAME --zone=$ZONE"
+        exit 1
+    fi
+    sleep 6
+done
 
 # ── 4. Upload code to VM ─────────────────────────────────────────────────────
 echo -e "${GREEN}[4/5] Uploading code to VM...${NC}"
-
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Clone directly on the VM (faster than scp)
 gcloud compute ssh "$VM_NAME" --zone="$ZONE" --command="
