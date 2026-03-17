@@ -213,6 +213,21 @@ print_step "All containers healthy"
 # ─── Step 6: Seed database ───────────────────────────────────────────────────
 print_header "Step 5/6 — Setting Up Database"
 
+# Wait for app entrypoint to finish migrations before running seed/tinker
+echo -e "  Waiting for app to finish startup..."
+TRIES=0
+while true; do
+    TRIES=$((TRIES+1))
+    if sudo $COMPOSE exec -T app php artisan tinker --execute="echo 'ready';" 2>/dev/null | grep -q ready; then
+        break
+    fi
+    if [[ $TRIES -ge 20 ]]; then
+        print_warn "App still not ready after 60s, attempting seed anyway..."
+        break
+    fi
+    sleep 3
+done
+
 if [[ "$SEED_DATA" == true ]]; then
     sudo $COMPOSE exec -T app php artisan db:seed --force
     print_step "Demo data seeded (Acme Technologies + sample users)"
