@@ -1,6 +1,6 @@
 # =============================================================================
 # Nalam Pulse — GCP Build-on-VM Docker Compose
-# Builds images locally from source (no Docker Hub needed).
+# Builds images locally from source. Used by install.sh.
 # =============================================================================
 
 x-app-env: &app-env
@@ -41,6 +41,7 @@ services:
       <<: *app-env
     volumes:
       - app-storage:/var/www/html/storage/app/public
+      - ${ENV_FILE:-../../deploy/gcp/.env}:/var/www/html/.env
     depends_on:
       db:
         condition: service_healthy
@@ -58,6 +59,8 @@ services:
     command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
     environment:
       <<: *app-env
+    volumes:
+      - ${ENV_FILE:-../../deploy/gcp/.env}:/var/www/html/.env
     depends_on:
       db:
         condition: service_healthy
