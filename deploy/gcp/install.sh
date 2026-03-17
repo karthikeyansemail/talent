@@ -213,23 +213,51 @@ print_step "All containers healthy"
 # ─── Step 6: Seed database ───────────────────────────────────────────────────
 print_header "Step 5/6 — Setting Up Database"
 
-# Wait for app entrypoint to finish migrations before running seed/tinker
-echo -e "  Waiting for app to finish startup..."
+# Wait for app entrypoint to finish migrations + DB to stabilize
+echo -e "  Waiting for app to be fully ready (entrypoint + DB)..."
 TRIES=0
 while true; do
     TRIES=$((TRIES+1))
-    if sudo $COMPOSE exec -T app php artisan tinker --execute="echo 'ready';" 2>/dev/null | grep -q ready; then
-        break
+    if sudo $COMPOSE exec -T app php -r "
+        try {
+            new PDO('mysql:host=db;port=3306;dbname=talent_db', 'talent', getenv('DB_PASSWORD'), [PDO::ATTR_TIMEOUT => 3]);
+            echo 'db_ok';
+        } catch (Exception \$e) { echo 'db_fail'; }
+    " 2>/dev/null | grep -q db_ok; then
+        # Also check that migrations are done (artisan can boot without error)
+        if sudo $COMPOSE exec -T app php artisan tinker --execute="echo 'ready';" 2>/dev/null | grep -q ready; then
+            break
+        fi
     fi
-    if [[ $TRIES -ge 20 ]]; then
-        print_warn "App still not ready after 60s, attempting seed anyway..."
-        break
+    if [[ $TRIES -ge 40 ]]; then
+        print_error "App/DB not ready after 120s. Check: sudo docker logs gcp-app-1"
+        exit 1
     fi
+    echo -e "  Not ready yet... (${TRIES}/40)"
     sleep 3
 done
+print_step "App and database ready"
+
+# Retry wrapper — handles transient DB connection drops on small VMs
+run_with_retry() {
+    local desc="$1"; shift
+    local attempt=0
+    while true; do
+        attempt=$((attempt+1))
+        if "$@" 2>&1; then
+            return 0
+        fi
+        if [[ $attempt -ge 5 ]]; then
+            print_error "$desc failed after $attempt attempts"
+            return 1
+        fi
+        print_warn "$desc failed (attempt $attempt/5), retrying in 10s..."
+        sleep 10
+    done
+}
 
 if [[ "$SEED_DATA" == true ]]; then
-    sudo $COMPOSE exec -T app php artisan db:seed --force
+    run_with_retry "Database seed" sudo $COMPOSE exec -T app php artisan db:seed --force
     print_step "Demo data seeded (Acme Technologies + sample users)"
 
     # Also run ExpandDemoDataSeeder if it exists
@@ -238,7 +266,7 @@ if [[ "$SEED_DATA" == true ]]; then
 else
     # Production: create super admin only
     ADMIN_PASS=$(ask_default "Super admin password" "NalamAdmin2026!")
-    sudo $COMPOSE exec -T app php artisan tinker --execute="
+    run_with_retry "Super admin creation" sudo $COMPOSE exec -T app php artisan tinker --execute="
         \$u = \App\Models\User::create([
             'name' => 'Platform Admin',
             'email' => 'admin@nalampulse.com',
