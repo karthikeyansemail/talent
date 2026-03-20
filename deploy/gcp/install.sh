@@ -260,9 +260,25 @@ if [[ "$SEED_DATA" == true ]]; then
     run_with_retry "Database seed" sudo $COMPOSE exec -T app php artisan db:seed --force
     print_step "Demo data seeded (Acme Technologies + sample users)"
 
-    # Also run ExpandDemoDataSeeder if it exists
-    sudo $COMPOSE exec -T app php artisan db:seed --class=ExpandDemoDataSeeder --force 2>/dev/null || true
+    # Seed Nalam Systems org (2nd demo org with employees, projects, hiring data)
+    run_with_retry "Nalam Systems org" sudo $COMPOSE exec -T app php artisan db:seed --class=NalamSystemsSeeder --force
+    print_step "Nalam Systems organization seeded"
+
+    # Hiring data for Nalam Systems (jobs, candidates, applications)
+    run_with_retry "Nalam hiring data" sudo $COMPOSE exec -T app php artisan db:seed --class=NalamHiringSeeder --force
+    print_step "Nalam hiring data seeded"
+
+    # Signal Intelligence demo data for Acme employees (tasks, signals, sprints)
+    run_with_retry "Signal intelligence" sudo $COMPOSE exec -T app php artisan db:seed --class=SignalIntelligenceDemoSeeder --force
+    print_step "Signal Intelligence demo data seeded"
+
+    # Expanded demo data (sprint tasks, Slack signals for both orgs)
+    run_with_retry "Expanded demo data" sudo $COMPOSE exec -T app php artisan db:seed --class=ExpandDemoDataSeeder --force
     print_step "Extended demo data loaded"
+
+    # SSO settings placeholders
+    sudo $COMPOSE exec -T app php artisan db:seed --class=SsoSettingsSeeder --force 2>/dev/null || true
+    print_step "SSO settings initialized"
 else
     # Production: create super admin only
     ADMIN_PASS=$(ask_default "Super admin password" "NalamAdmin2026!")
@@ -347,6 +363,8 @@ echo ""
 
 if [[ "$SEED_DATA" == true ]]; then
     echo -e "  ${YELLOW}Login credentials:${NC}"
+    echo ""
+    echo -e "  ${CYAN}Acme Technologies (Demo Org 1):${NC}"
     echo "  ┌──────────────────┬──────────────────────┬──────────┐"
     echo "  │ Role             │ Email                │ Password │"
     echo "  ├──────────────────┼──────────────────────┼──────────┤"
@@ -355,6 +373,15 @@ if [[ "$SEED_DATA" == true ]]; then
     echo "  │ HR Manager       │ hr@acme.com          │ password │"
     echo "  │ Resource Manager │ rm@acme.com          │ password │"
     echo "  └──────────────────┴──────────────────────┴──────────┘"
+    echo ""
+    echo -e "  ${CYAN}Nalam Systems (Demo Org 2):${NC}"
+    echo "  ┌──────────────────┬──────────────────────────────────┬────────────────────┐"
+    echo "  │ Role             │ Email                            │ Password           │"
+    echo "  ├──────────────────┼──────────────────────────────────┼────────────────────┤"
+    echo "  │ Org Admin        │ admin@nalamsystems.work          │ NalamDemo@Systems1 │"
+    echo "  │ HR Manager       │ hrm@nalamsystems.work            │ NalamDemo@Systems1 │"
+    echo "  │ Resource Manager │ pm@nalamsystems.work             │ NalamDemo@Systems1 │"
+    echo "  └──────────────────┴──────────────────────────────────┴────────────────────┘"
 else
     echo -e "  ${YELLOW}Login:${NC} admin@nalampulse.com / (your chosen password)"
 fi
