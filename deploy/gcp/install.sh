@@ -257,28 +257,22 @@ run_with_retry() {
 }
 
 if [[ "$SEED_DATA" == true ]]; then
-    run_with_retry "Database seed" sudo $COMPOSE exec -T app php artisan db:seed --force
-    print_step "Demo data seeded (Acme Technologies + sample users)"
-
-    # Seed Nalam Systems org (2nd demo org with employees, projects, hiring data)
-    run_with_retry "Nalam Systems org" sudo $COMPOSE exec -T app php artisan db:seed --class=NalamSystemsSeeder --force
-    print_step "Nalam Systems organization seeded"
-
-    # Hiring data for Nalam Systems (jobs, candidates, applications)
-    run_with_retry "Nalam hiring data" sudo $COMPOSE exec -T app php artisan db:seed --class=NalamHiringSeeder --force
-    print_step "Nalam hiring data seeded"
-
-    # Signal Intelligence demo data for Acme employees (tasks, signals, sprints)
-    run_with_retry "Signal intelligence" sudo $COMPOSE exec -T app php artisan db:seed --class=SignalIntelligenceDemoSeeder --force
-    print_step "Signal Intelligence demo data seeded"
-
-    # Expanded demo data (sprint tasks, Slack signals for both orgs)
-    run_with_retry "Expanded demo data" sudo $COMPOSE exec -T app php artisan db:seed --class=ExpandDemoDataSeeder --force
-    print_step "Extended demo data loaded"
-
-    # SSO settings placeholders
-    sudo $COMPOSE exec -T app php artisan db:seed --class=SsoSettingsSeeder --force 2>/dev/null || true
-    print_step "SSO settings initialized"
+    DEMO_GZ="$APP_DIR/deploy/gcp/demo-data.sql.gz"
+    if [[ -f "$DEMO_GZ" ]]; then
+        # Use the full localhost dump — exact replica of dev environment
+        echo -e "  Importing demo data dump (full localhost replica)..."
+        gunzip -k "$DEMO_GZ" 2>/dev/null || true
+        DEMO_SQL="${DEMO_GZ%.gz}"
+        run_with_retry "Demo data import" sudo $COMPOSE exec -T db \
+            mysql -u talent -p"${DB_PASSWORD}" talent_db < "$DEMO_SQL"
+        rm -f "$DEMO_SQL"
+        print_step "Full demo data imported (all orgs, users, hiring, signals, etc.)"
+    else
+        # Fallback: run seeders if dump file not found
+        print_warn "demo-data.sql not found, falling back to seeders..."
+        run_with_retry "Database seed" sudo $COMPOSE exec -T app php artisan db:seed --force
+        print_step "Demo data seeded (basic)"
+    fi
 else
     # Production: create super admin only
     ADMIN_PASS=$(ask_default "Super admin password" "NalamAdmin2026!")
