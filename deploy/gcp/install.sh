@@ -260,6 +260,21 @@ if [[ "$SEED_DATA" == true ]]; then
     DEMO_GZ="$APP_DIR/deploy/gcp/demo-data.sql.gz"
     if [[ -f "$DEMO_GZ" ]]; then
         # Use the full localhost dump — exact replica of dev environment
+        echo -e "  Clearing default data before importing demo dump..."
+        # Truncate all non-migration tables so the dump can insert cleanly
+        sudo $COMPOSE exec -T db mysql -u talent -p"${DB_PASSWORD}" talent_db -e "
+            SET FOREIGN_KEY_CHECKS=0;
+            SET @tables = NULL;
+            SELECT GROUP_CONCAT(table_name) INTO @tables
+                FROM information_schema.tables
+                WHERE table_schema = 'talent_db' AND table_name != 'migrations';
+            SET @sql = CONCAT('TRUNCATE TABLE ', REPLACE(@tables, ',', '; TRUNCATE TABLE '), ';');
+            PREPARE stmt FROM @sql;
+            EXECUTE stmt;
+            DEALLOCATE PREPARE stmt;
+            SET FOREIGN_KEY_CHECKS=1;
+        " 2>/dev/null || true
+
         echo -e "  Importing demo data dump (full localhost replica)..."
         gunzip -k "$DEMO_GZ" 2>/dev/null || true
         DEMO_SQL="${DEMO_GZ%.gz}"
