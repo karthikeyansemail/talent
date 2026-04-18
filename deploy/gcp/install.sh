@@ -339,6 +339,19 @@ TRUNCATE_SQL
         sudo rm -f "$DEMO_SQL"
         print_step "Full demo data imported (all orgs, users, hiring, signals, etc.)"
 
+        # Clear tables with encrypted data — they were encrypted with localhost APP_KEY
+        # and cannot be decrypted with the new GCP APP_KEY (causes MAC invalid errors).
+        # Users can reconfigure SSO/integrations via the Settings UI after deploy.
+        echo -e "  Clearing encrypted credentials (incompatible with new APP_KEY)..."
+        sudo $COMPOSE exec -T db mysql -u talent -p"${DB_PASSWORD}" talent_db -e "
+            TRUNCATE TABLE sso_settings;
+            TRUNCATE TABLE integration_connections;
+            TRUNCATE TABLE jira_connections;
+            TRUNCATE TABLE zoho_projects_connections;
+            TRUNCATE TABLE zoho_people_connections;
+        " 2>/dev/null || true
+        print_step "Encrypted credentials cleared (reconfigure via Settings)"
+
         # Refresh demo data with current-week dates so dashboards look fresh
         echo -e "  Refreshing demo data with current dates..."
         run_with_retry "Demo data refresh" sudo $COMPOSE exec -T app \
