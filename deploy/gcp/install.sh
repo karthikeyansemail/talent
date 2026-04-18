@@ -342,7 +342,7 @@ TRUNCATE_SQL
         # Refresh demo data with current-week dates so dashboards look fresh
         echo -e "  Refreshing demo data with current dates..."
         run_with_retry "Demo data refresh" sudo $COMPOSE exec -T app \
-            php artisan demo:refresh --weeks=3 --with-slack 2>&1
+            php artisan demo:refresh --weeks=3 2>&1
         print_step "Demo data refreshed with current-week dates"
     else
         # Fallback: run seeders if dump file not found

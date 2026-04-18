@@ -430,7 +430,12 @@ class RefreshDemoData extends Command
             ->where('type', 'slack')->first();
         if (!$conn) { $this->warn('  No Slack connection'); return; }
 
-        $token = $conn->credentials['bot_token'] ?? $conn->credentials['access_token'] ?? '';
+        try {
+            $token = $conn->credentials['bot_token'] ?? $conn->credentials['access_token'] ?? '';
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            $this->warn('  Slack credentials encrypted with different APP_KEY, skipping');
+            return;
+        }
         if (!$token) { $this->warn('  No Slack token'); return; }
 
         $this->line('  Posting fresh Slack messages...');
