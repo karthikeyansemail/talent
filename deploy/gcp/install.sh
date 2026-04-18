@@ -344,11 +344,13 @@ TRUNCATE_SQL
         # Users can reconfigure SSO/integrations via the Settings UI after deploy.
         echo -e "  Clearing encrypted credentials (incompatible with new APP_KEY)..."
         sudo $COMPOSE exec -T db mysql -u talent -p"${DB_PASSWORD}" talent_db -e "
+            SET FOREIGN_KEY_CHECKS=0;
             TRUNCATE TABLE sso_settings;
             TRUNCATE TABLE integration_connections;
             TRUNCATE TABLE jira_connections;
             TRUNCATE TABLE zoho_projects_connections;
             TRUNCATE TABLE zoho_people_connections;
+            SET FOREIGN_KEY_CHECKS=1;
         " 2>/dev/null || true
         print_step "Encrypted credentials cleared (reconfigure via Settings)"
 
