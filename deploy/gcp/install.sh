@@ -295,26 +295,48 @@ if [[ "$SEED_DATA" == true ]]; then
     if [[ -f "$DEMO_GZ" ]]; then
         # Use the full localhost dump — exact replica of dev environment
         echo -e "  Clearing default data before importing demo dump..."
-        # Truncate all non-migration tables so the dump can insert cleanly
-        sudo $COMPOSE exec -T db mysql -u talent -p"${DB_PASSWORD}" talent_db -e "
-            SET FOREIGN_KEY_CHECKS=0;
-            SET @tables = NULL;
-            SELECT GROUP_CONCAT(table_name) INTO @tables
-                FROM information_schema.tables
-                WHERE table_schema = 'talent_db' AND table_name != 'migrations';
-            SET @sql = CONCAT('TRUNCATE TABLE ', REPLACE(@tables, ',', '; TRUNCATE TABLE '), ';');
-            PREPARE stmt FROM @sql;
-            EXECUTE stmt;
-            DEALLOCATE PREPARE stmt;
-            SET FOREIGN_KEY_CHECKS=1;
-        " 2>/dev/null || true
+        # Truncate all tables explicitly (dynamic SQL via GROUP_CONCAT fails silently)
+        sudo $COMPOSE exec -T db mysql -u talent -p"${DB_PASSWORD}" talent_db <<'TRUNCATE_SQL'
+SET FOREIGN_KEY_CHECKS=0;
+TRUNCATE TABLE candidates;
+TRUNCATE TABLE departments;
+TRUNCATE TABLE employee_ai_insights;
+TRUNCATE TABLE employee_jira_tasks;
+TRUNCATE TABLE employee_signals;
+TRUNCATE TABLE employee_tasks;
+TRUNCATE TABLE employees;
+TRUNCATE TABLE integration_connections;
+TRUNCATE TABLE interview_feedback;
+TRUNCATE TABLE interview_questions;
+TRUNCATE TABLE interview_sessions;
+TRUNCATE TABLE interview_transcripts;
+TRUNCATE TABLE jira_connections;
+TRUNCATE TABLE job_applications;
+TRUNCATE TABLE job_postings;
+TRUNCATE TABLE organizations;
+TRUNCATE TABLE platform_settings;
+TRUNCATE TABLE project_resource_matches;
+TRUNCATE TABLE projects;
+TRUNCATE TABLE resumes;
+TRUNCATE TABLE role_user;
+TRUNCATE TABLE scoring_rule_versions;
+TRUNCATE TABLE scoring_rules;
+TRUNCATE TABLE signal_snapshots;
+TRUNCATE TABLE sprint_sheets;
+TRUNCATE TABLE sso_settings;
+TRUNCATE TABLE users;
+TRUNCATE TABLE zoho_people_connections;
+TRUNCATE TABLE zoho_projects_connections;
+SET FOREIGN_KEY_CHECKS=1;
+TRUNCATE_SQL
+        print_step "Tables truncated"
 
         echo -e "  Importing demo data dump (full localhost replica)..."
-        gunzip -k "$DEMO_GZ" 2>/dev/null || true
+        sudo gunzip -k "$DEMO_GZ" 2>/dev/null || true
         DEMO_SQL="${DEMO_GZ%.gz}"
         run_with_retry "Demo data import" sudo $COMPOSE exec -T db \
             mysql --binary-mode -u talent -p"${DB_PASSWORD}" talent_db < "$DEMO_SQL"
-        rm -f "$DEMO_SQL"
+        sudo rm -f "$DEMO_SQL"
         print_step "Full demo data imported (all orgs, users, hiring, signals, etc.)"
 
         # Refresh demo data with current-week dates so dashboards look fresh
