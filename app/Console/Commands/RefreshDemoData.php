@@ -331,12 +331,10 @@ class RefreshDemoData extends Command
         $role     = $profile['role'];
         $templates= $this->taskTemplates[$role] ?? $this->taskTemplates['developer'];
 
-        // Delete old tasks for the current month to avoid unbounded growth
+        // Delete old demo-generated tasks for this employee+month to avoid duplicates
         EmployeeTask::where('employee_id', $emp->id)
             ->where('organization_id', $orgId)
-            ->where('source_type', $sourceType)
-            ->where('source_created_at', '>=', Carbon::parse($monthKey . '-01'))
-            ->where('source_created_at', '<', Carbon::parse($monthKey . '-01')->addMonth())
+            ->where('external_id', 'like', 'demo_' . $emp->id . '_' . $monthKey . '_%')
             ->delete();
 
         $priorities = ['High', 'Medium', 'Low'];
