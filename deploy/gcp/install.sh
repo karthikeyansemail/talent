@@ -95,7 +95,7 @@ if command -v docker &>/dev/null; then
     print_step "Docker already installed ($(docker --version | cut -d' ' -f3))"
 else
     sudo apt-get update -qq
-    sudo apt-get install -y -qq docker.io docker-compose-v2 > /dev/null 2>&1
+    sudo apt-get install -y -qq docker.io docker-compose-v2 dnsutils > /dev/null 2>&1
     sudo systemctl enable docker
     sudo systemctl start docker
     sudo usermod -aG docker "$(whoami)" 2>/dev/null || true
@@ -376,8 +376,23 @@ if [[ "${SETUP_SSL,,}" == "y" ]]; then
         sudo apt-get install -y -qq certbot > /dev/null 2>&1
     fi
 
+    # Verify DNS points to this server before attempting SSL
+    RESOLVED_IP=$(dig +short "$DOMAIN" 2>/dev/null | tail -1)
+    if [[ "$RESOLVED_IP" != "$SERVER_IP" ]]; then
+        print_warn "DNS check: ${DOMAIN} resolves to ${RESOLVED_IP:-nothing}, expected ${SERVER_IP}"
+        print_warn "Waiting 30s for DNS propagation..."
+        sleep 30
+        RESOLVED_IP=$(dig +short "$DOMAIN" 2>/dev/null | tail -1)
+    fi
+
+    if [[ "$RESOLVED_IP" == "$SERVER_IP" ]]; then
+        echo -e "  ${GREEN}DNS verified: ${DOMAIN} → ${SERVER_IP}${NC}"
+    else
+        print_warn "DNS may not be ready (${DOMAIN} → ${RESOLVED_IP:-unresolved}). SSL may fail."
+    fi
+
     sudo systemctl stop nginx
-    if sudo certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos -m "admin@${DOMAIN}"; then
+    if sudo certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos -m "admin@nalampulse.com"; then
         # Switch nginx to SSL config
         sudo tee /etc/nginx/sites-available/nalam > /dev/null <<NGINX_SSL
 server {
