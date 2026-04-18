@@ -18,16 +18,16 @@ class SyncDevOasTasksJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
-        private IntegrationConnection $connection
+        private IntegrationConnection $integrationConnection
     ) {}
 
     public function handle(): void
     {
-        $credentials  = $this->connection->credentials;
+        $credentials  = $this->integrationConnection->credentials;
         $orgName      = $credentials['org_name'] ?? '';
         $projectName  = $credentials['project_name'] ?? '';
         $accessToken  = $credentials['access_token'] ?? '';
-        $orgId        = $this->connection->organization_id;
+        $orgId        = $this->integrationConnection->organization_id;
 
         // Azure DevOps uses Basic auth with empty username + PAT
         $basicAuth = base64_encode(':' . $accessToken);
@@ -51,7 +51,7 @@ class SyncDevOasTasksJob implements ShouldQueue
 
             if (!$wiqlResponse->successful()) {
                 Log::warning('DevOps WIQL query failed', [
-                    'connection_id' => $this->connection->id,
+                    'connection_id' => $this->integrationConnection->id,
                     'status' => $wiqlResponse->status(),
                 ]);
                 return;
@@ -102,7 +102,7 @@ class SyncDevOasTasksJob implements ShouldQueue
                         ],
                         [
                             'organization_id'   => $orgId,
-                            'connection_id'     => $this->connection->id,
+                            'connection_id'     => $this->integrationConnection->id,
                             'title'             => $fields['System.Title'] ?? "Work Item #{$externalId}",
                             'description'       => strip_tags($fields['System.Description'] ?? ''),
                             'task_type'         => $itemType,
@@ -126,14 +126,14 @@ class SyncDevOasTasksJob implements ShouldQueue
                 }
             }
 
-            $this->connection->update(['last_synced_at' => now()]);
+            $this->integrationConnection->update(['last_synced_at' => now()]);
 
             Log::info("DevOps Boards sync complete: {$synced} tasks synced", [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
         } catch (\Exception $e) {
             Log::error('DevOps Boards sync error: ' . $e->getMessage(), [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
             throw $e;
         }

@@ -18,15 +18,15 @@ class SyncGitHubSignalsJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
-        private IntegrationConnection $connection
+        private IntegrationConnection $integrationConnection
     ) {}
 
     public function handle(): void
     {
-        $credentials = $this->connection->credentials;
+        $credentials = $this->integrationConnection->credentials;
         $orgName     = $credentials['org_name'] ?? '';
         $token       = $credentials['access_token'] ?? '';
-        $orgId       = $this->connection->organization_id;
+        $orgId       = $this->integrationConnection->organization_id;
 
         try {
             $http = Http::withToken($token)
@@ -40,7 +40,7 @@ class SyncGitHubSignalsJob implements ShouldQueue
 
             if (!$reposResponse->successful()) {
                 Log::warning('GitHub repos fetch failed', [
-                    'connection_id' => $this->connection->id,
+                    'connection_id' => $this->integrationConnection->id,
                     'status' => $reposResponse->status(),
                 ]);
                 return;
@@ -198,14 +198,14 @@ class SyncGitHubSignalsJob implements ShouldQueue
                 $synced++;
             }
 
-            $this->connection->update(['last_synced_at' => now()]);
+            $this->integrationConnection->update(['last_synced_at' => now()]);
 
             Log::info("GitHub signals sync complete: {$synced} employees", [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
         } catch (\Exception $e) {
             Log::error('GitHub signals sync error: ' . $e->getMessage(), [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
             throw $e;
         }

@@ -45,6 +45,7 @@ SKIP_TABLES=(
     "password_reset_tokens"
     "migrations"
     "activity_logs"
+    "ai_processing_logs"
 )
 
 # Build --ignore-table flags

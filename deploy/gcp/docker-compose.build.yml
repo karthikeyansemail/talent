@@ -27,6 +27,7 @@ x-app-env: &app-env
   MAIL_FROM_ADDRESS: "${MAIL_FROM_ADDRESS:-noreply@nalampulse.com}"
   MAIL_FROM_NAME: "Nalam Pulse"
   AI_SERVICE_URL: "http://ai-service:8000"
+  DEMO_MODE: "${DEMO_MODE:-false}"
 
 services:
 
@@ -57,6 +58,25 @@ services:
     restart: unless-stopped
     entrypoint: []
     command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    environment:
+      <<: *app-env
+    volumes:
+      - ${ENV_FILE:-../../deploy/gcp/.env}:/var/www/html/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # Runs Laravel scheduler every 60s — handles weekly demo refresh, scoring optimization, etc.
+  scheduler:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    entrypoint: []
+    command: >
+      sh -c "while true; do php artisan schedule:run --verbose --no-interaction 2>&1; sleep 60; done"
     environment:
       <<: *app-env
     volumes:

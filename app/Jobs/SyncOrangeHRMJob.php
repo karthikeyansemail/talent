@@ -18,16 +18,16 @@ class SyncOrangeHRMJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
-        private IntegrationConnection $connection
+        private IntegrationConnection $integrationConnection
     ) {}
 
     public function handle(): void
     {
-        $credentials = $this->connection->credentials;
+        $credentials = $this->integrationConnection->credentials;
         $baseUrl = rtrim($credentials['base_url'] ?? '', '/');
         $clientId = $credentials['client_id'] ?? '';
         $clientSecret = $credentials['client_secret'] ?? '';
-        $orgId = $this->connection->organization_id;
+        $orgId = $this->integrationConnection->organization_id;
 
         try {
             // Step 1: Get access token via client_credentials grant
@@ -39,7 +39,7 @@ class SyncOrangeHRMJob implements ShouldQueue
 
             if (!$tokenResponse->successful()) {
                 Log::warning('OrangeHRM token fetch failed', [
-                    'connection_id' => $this->connection->id,
+                    'connection_id' => $this->integrationConnection->id,
                     'status' => $tokenResponse->status(),
                 ]);
                 return;
@@ -61,7 +61,7 @@ class SyncOrangeHRMJob implements ShouldQueue
 
                 if (!$response->successful()) {
                     Log::warning('OrangeHRM employees fetch failed', [
-                        'connection_id' => $this->connection->id,
+                        'connection_id' => $this->integrationConnection->id,
                         'status' => $response->status(),
                     ]);
                     break;
@@ -109,14 +109,14 @@ class SyncOrangeHRMJob implements ShouldQueue
                 $offset += $limit;
             } while ($offset < $total);
 
-            $this->connection->update(['last_synced_at' => now()]);
+            $this->integrationConnection->update(['last_synced_at' => now()]);
 
             Log::info("OrangeHRM sync complete: {$synced} employees synced", [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
         } catch (\Exception $e) {
             Log::error('OrangeHRM sync error: ' . $e->getMessage(), [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
             throw $e;
         }

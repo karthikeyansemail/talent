@@ -18,16 +18,16 @@ class SyncGitHubProjectsJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
-        private IntegrationConnection $connection
+        private IntegrationConnection $integrationConnection
     ) {}
 
     public function handle(): void
     {
-        $credentials   = $this->connection->credentials;
+        $credentials   = $this->integrationConnection->credentials;
         $orgName       = $credentials['org_name'] ?? '';
         $projectNumber = (int) ($credentials['project_number'] ?? 0);
         $accessToken   = $credentials['access_token'] ?? '';
-        $orgId         = $this->connection->organization_id;
+        $orgId         = $this->integrationConnection->organization_id;
 
         try {
             $employees = Employee::where('organization_id', $orgId)
@@ -97,7 +97,7 @@ class SyncGitHubProjectsJob implements ShouldQueue
 
                 if (!$response->successful()) {
                     Log::warning('GitHub Projects GraphQL failed', [
-                        'connection_id' => $this->connection->id,
+                        'connection_id' => $this->integrationConnection->id,
                         'status' => $response->status(),
                     ]);
                     break;
@@ -165,7 +165,7 @@ class SyncGitHubProjectsJob implements ShouldQueue
                         ],
                         [
                             'organization_id'   => $orgId,
-                            'connection_id'     => $this->connection->id,
+                            'connection_id'     => $this->integrationConnection->id,
                             'title'             => $title,
                             'description'       => $body,
                             'task_type'         => $item['type'] ?? 'Issue',
@@ -192,14 +192,14 @@ class SyncGitHubProjectsJob implements ShouldQueue
                 $cursor   = $pageInfo['endCursor'] ?? null;
             }
 
-            $this->connection->update(['last_synced_at' => now()]);
+            $this->integrationConnection->update(['last_synced_at' => now()]);
 
             Log::info("GitHub Projects sync complete: {$synced} tasks synced", [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
         } catch (\Exception $e) {
             Log::error('GitHub Projects sync error: ' . $e->getMessage(), [
-                'connection_id' => $this->connection->id,
+                'connection_id' => $this->integrationConnection->id,
             ]);
             throw $e;
         }

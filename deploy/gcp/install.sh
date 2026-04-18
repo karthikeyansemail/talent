@@ -38,27 +38,40 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 print_header "Nalam Pulse — GCP Installer"
 
 # ─── Step 1: Gather info ─────────────────────────────────────────────────────
-echo -e "${YELLOW}Answer a few questions to configure your deployment:${NC}\n"
-
-INSTANCE_TYPE=$(ask_default "Instance type (demo/production)" "demo")
+# Supports both interactive (wizard) and non-interactive (env vars) modes.
+# For fully automated deployment, set these env vars before running:
+#   NALAM_TYPE=demo NALAM_DOMAIN=demo.nalampulse.com NALAM_SSL=y bash install.sh
+#
 SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
-DOMAIN=$(ask_default "Domain name" "${SERVER_IP}")
-DB_PASSWORD=$(ask_default "Database password" "NalamPulse$(openssl rand -hex 4)")
-echo ""
+
+if [[ -n "${NALAM_TYPE:-}" ]]; then
+    # Non-interactive mode — use env vars
+    INSTANCE_TYPE="${NALAM_TYPE}"
+    DOMAIN="${NALAM_DOMAIN:-$SERVER_IP}"
+    DB_PASSWORD="${NALAM_DB_PASS:-NalamPulse$(openssl rand -hex 4)}"
+    SETUP_SSL="${NALAM_SSL:-n}"
+    echo -e "  ${GREEN}Non-interactive mode (from env vars)${NC}"
+else
+    # Interactive wizard
+    echo -e "${YELLOW}Answer a few questions to configure your deployment:${NC}\n"
+    INSTANCE_TYPE=$(ask_default "Instance type (demo/production)" "demo")
+    DOMAIN=$(ask_default "Domain name" "${SERVER_IP}")
+    DB_PASSWORD=$(ask_default "Database password" "NalamPulse$(openssl rand -hex 4)")
+    echo ""
+    SETUP_SSL=$(ask_default "Set up SSL now? (requires DNS already pointing to this server)" "n")
+fi
 
 if [[ "$INSTANCE_TYPE" == "demo" ]]; then
     APP_NAME="Nalam Pulse Demo"
     SEED_DATA=true
-    echo -e "  ${GREEN}Demo mode: Will seed sample data (Acme Technologies org + users)${NC}"
+    DEMO_MODE=true
+    echo -e "  ${GREEN}Demo mode: Will seed all 4 demo orgs + weekly auto-refresh${NC}"
 else
     APP_NAME="Nalam Pulse"
     SEED_DATA=false
+    DEMO_MODE=false
     echo -e "  ${GREEN}Production mode: Clean database, super admin only${NC}"
 fi
-
-SETUP_SSL="n"
-echo ""
-SETUP_SSL=$(ask_default "Set up SSL now? (requires DNS already pointing to this server)" "n")
 
 echo ""
 echo -e "${YELLOW}Configuration summary:${NC}"
@@ -69,8 +82,11 @@ echo "  DB Pass:   ${DB_PASSWORD:0:4}****"
 echo "  Seed Data: $SEED_DATA"
 echo "  SSL:       $SETUP_SSL"
 echo ""
-read -p "  Proceed? [Y/n]: " CONFIRM
-[[ "${CONFIRM,,}" != "n" ]] || { echo "Aborted."; exit 0; }
+
+if [[ -z "${NALAM_TYPE:-}" ]]; then
+    read -p "  Proceed? [Y/n]: " CONFIRM
+    [[ "${CONFIRM,,}" != "n" ]] || { echo "Aborted."; exit 0; }
+fi
 
 # ─── Step 2: Install Docker (if not present) ─────────────────────────────────
 print_header "Step 1/6 — Installing Docker"
@@ -163,6 +179,7 @@ MAIL_HOST=
 MAIL_USERNAME=
 MAIL_PASSWORD=
 AI_SERVICE_URL=http://ai-service:8000
+DEMO_MODE=${DEMO_MODE}
 EOF
 chmod 777 "$APP_DIR/deploy/gcp/.env"
 print_step "Laravel .env created"
@@ -279,9 +296,15 @@ if [[ "$SEED_DATA" == true ]]; then
         gunzip -k "$DEMO_GZ" 2>/dev/null || true
         DEMO_SQL="${DEMO_GZ%.gz}"
         run_with_retry "Demo data import" sudo $COMPOSE exec -T db \
-            mysql -u talent -p"${DB_PASSWORD}" talent_db < "$DEMO_SQL"
+            mysql --binary-mode -u talent -p"${DB_PASSWORD}" talent_db < "$DEMO_SQL"
         rm -f "$DEMO_SQL"
         print_step "Full demo data imported (all orgs, users, hiring, signals, etc.)"
+
+        # Refresh demo data with current-week dates so dashboards look fresh
+        echo -e "  Refreshing demo data with current dates..."
+        run_with_retry "Demo data refresh" sudo $COMPOSE exec -T app \
+            php artisan demo:refresh --weeks=3 --with-slack 2>&1
+        print_step "Demo data refreshed with current-week dates"
     else
         # Fallback: run seeders if dump file not found
         print_warn "demo-data.sql not found, falling back to seeders..."
@@ -373,7 +396,7 @@ echo ""
 if [[ "$SEED_DATA" == true ]]; then
     echo -e "  ${YELLOW}Login credentials:${NC}"
     echo ""
-    echo -e "  ${CYAN}Acme Technologies (Demo Org 1):${NC}"
+    echo -e "  ${CYAN}Acme Technologies — Payment Plans Demo (Jira + GitHub):${NC}"
     echo "  ┌──────────────────┬──────────────────────┬──────────┐"
     echo "  │ Role             │ Email                │ Password │"
     echo "  ├──────────────────┼──────────────────────┼──────────┤"
@@ -383,7 +406,7 @@ if [[ "$SEED_DATA" == true ]]; then
     echo "  │ Resource Manager │ rm@acme.com          │ password │"
     echo "  └──────────────────┴──────────────────────┴──────────┘"
     echo ""
-    echo -e "  ${CYAN}Nalam Systems (Demo Org 2):${NC}"
+    echo -e "  ${CYAN}Nalam Systems — Full Features Demo (Jira + Slack):${NC}"
     echo "  ┌──────────────────┬──────────────────────────────────┬────────────────────┐"
     echo "  │ Role             │ Email                            │ Password           │"
     echo "  ├──────────────────┼──────────────────────────────────┼────────────────────┤"
@@ -391,6 +414,24 @@ if [[ "$SEED_DATA" == true ]]; then
     echo "  │ HR Manager       │ hrm@nalamsystems.work            │ NalamDemo@Systems1 │"
     echo "  │ Resource Manager │ pm@nalamsystems.work             │ NalamDemo@Systems1 │"
     echo "  └──────────────────┴──────────────────────────────────┴────────────────────┘"
+    echo ""
+    echo -e "  ${CYAN}Nalam Tech — Microsoft Stack Demo (Azure DevOps + Teams):${NC}"
+    echo "  ┌──────────────────┬──────────────────────────────────┬────────────────────┐"
+    echo "  │ Role             │ Email                            │ Password           │"
+    echo "  ├──────────────────┼──────────────────────────────────┼────────────────────┤"
+    echo "  │ Org Admin        │ kevin.lee@nalamtech.work         │ NalamDemo@Tech1    │"
+    echo "  │ Resource Manager │ omar.ali@nalamtech.work          │ NalamDemo@Tech1    │"
+    echo "  └──────────────────┴──────────────────────────────────┴────────────────────┘"
+    echo ""
+    echo -e "  ${CYAN}Nalam Labs — Zoho Stack Demo (Zoho Projects + Slack):${NC}"
+    echo "  ┌──────────────────┬──────────────────────────────────┬────────────────────┐"
+    echo "  │ Role             │ Email                            │ Password           │"
+    echo "  ├──────────────────┼──────────────────────────────────┼────────────────────┤"
+    echo "  │ Org Admin        │ ravi.das@nalamlabs.work          │ NalamDemo@Systems1 │"
+    echo "  │ Resource Manager │ sara.noor@nalamlabs.work         │ NalamDemo@Systems1 │"
+    echo "  └──────────────────┴──────────────────────────────────┴────────────────────┘"
+    echo ""
+    echo -e "  ${GREEN}Auto-refresh:${NC} Demo data refreshes automatically every Monday at 3 AM"
 else
     echo -e "  ${YELLOW}Login:${NC} admin@nalampulse.com / (your chosen password)"
 fi
