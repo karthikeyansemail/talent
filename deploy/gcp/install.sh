@@ -255,6 +255,23 @@ while true; do
 done
 print_step "App and database ready"
 
+# Ensure migrations are fully complete before any data import
+echo -e "  Running migrations..."
+run_attempts=0
+while true; do
+    run_attempts=$((run_attempts+1))
+    if sudo $COMPOSE exec -T app php artisan migrate --force 2>&1 | tail -3; then
+        break
+    fi
+    if [[ $run_attempts -ge 5 ]]; then
+        print_error "Migrations failed after $run_attempts attempts"
+        exit 1
+    fi
+    echo -e "  Migration attempt $run_attempts failed, retrying in 10s..."
+    sleep 10
+done
+print_step "Migrations complete"
+
 # Retry wrapper — handles transient DB connection drops on small VMs
 run_with_retry() {
     local desc="$1"; shift
