@@ -34,6 +34,15 @@
         </span>
         <span style="font-size:11.5px;font-weight:400;color:var(--gray-500);padding-left:24px">GitHub · Code Intelligence</span>
     </button>
+    @if(auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('crm') ?? false))
+    <button class="tab" data-tab="tab-crm" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 20px;height:auto;min-width:200px">
+        <span style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Sales CRM
+        </span>
+        <span style="font-size:11.5px;font-weight:400;color:var(--gray-500);padding-left:24px">Salesforce · HubSpot · Zoho CRM</span>
+    </button>
+    @endif
 </div>
 
 {{-- ===== PROJECT MANAGEMENT TAB ===== --}}
@@ -768,5 +777,243 @@
     </div>
 
 </div>
+
+{{-- ===== SALES CRM TAB ===== --}}
+@if(auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('crm') ?? false))
+<div class="tab-content" id="tab-crm">
+
+    {{-- Section: Salesforce --}}
+    <div style="display:flex;align-items:center;gap:10px;margin:24px 0 14px">
+        <div style="width:32px;height:32px;background:#00a1e0;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div>
+            <div style="font-weight:600;font-size:15px;color:var(--gray-800)">Salesforce CRM</div>
+            <div style="font-size:12px;color:var(--gray-500)">Sync deals, pipeline, calls, emails, and meetings per sales rep</div>
+        </div>
+    </div>
+
+    @php $sfConnections = $integrationConnections->get('salesforce_crm', collect()); @endphp
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Salesforce Connections
+            </span>
+        </div>
+        <table>
+            <thead><tr><th>Name</th><th>Instance</th><th>Status</th><th>Last Synced</th><th></th></tr></thead>
+            <tbody>
+            @forelse($sfConnections as $conn)
+            <tr>
+                <td>{{ $conn->name }}</td>
+                <td class="text-sm text-muted">{{ $conn->credentials['instance_url'] ?? '—' }}</td>
+                <td>@include('components.stage-badge', ['stage' => $conn->is_active ? 'active' : 'closed'])</td>
+                <td class="text-sm text-muted">{{ $conn->last_synced_at?->diffForHumans() ?? 'Never' }}</td>
+                <td>
+                    <div class="table-actions">
+                        <form method="POST" action="{{ route('settings.integrations.salesforceCrm.test', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-secondary">Test</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.salesforceCrm.sync', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-primary">Sync</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.salesforceCrm.destroy', $conn) }}" style="display:inline">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this connection?')">Remove</button></form>
+                    </div>
+                </td>
+            </tr>
+            @empty
+            <tr><td colspan="5"><div class="empty-state"><p>No Salesforce connections</p><p class="empty-hint">Add a connection below to sync sales activity from Salesforce</p></div></td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Salesforce Connection
+            </span>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ route('settings.integrations.salesforceCrm.store') }}">
+                @csrf
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="form-group">
+                        <label>Connection Name *</label>
+                        <input type="text" name="name" class="form-control" value="{{ old('name', 'Salesforce - ' . (auth()->user()->currentOrganization()->name ?? '')) }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Instance URL *</label>
+                        <input type="url" name="instance_url" class="form-control" value="{{ old('instance_url') }}" placeholder="https://yourorg.my.salesforce.com" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Access Token *</label>
+                    <input type="password" name="access_token" class="form-control" required>
+                    <div class="form-hint">From Setup → Apps → Connected App OAuth flow. Required scopes: api, refresh_token, offline_access</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="form-group">
+                        <label>Refresh Token (optional)</label>
+                        <input type="password" name="refresh_token" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Client ID (optional)</label>
+                        <input type="text" name="client_id" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Client Secret (optional)</label>
+                    <input type="password" name="client_secret" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary">Add Salesforce Connection</button>
+            </form>
+        </div>
+    </div>
+
+    {{-- Section: HubSpot --}}
+    <div style="display:flex;align-items:center;gap:10px;margin:24px 0 14px">
+        <div style="width:32px;height:32px;background:#ff7a59;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div>
+            <div style="font-weight:600;font-size:15px;color:var(--gray-800)">HubSpot CRM</div>
+            <div style="font-size:12px;color:var(--gray-500)">Pull deals, calls, emails, meetings from HubSpot via Private App token</div>
+        </div>
+    </div>
+
+    @php $hsConnections = $integrationConnections->get('hubspot_crm', collect()); @endphp
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                HubSpot Connections
+            </span>
+        </div>
+        <table>
+            <thead><tr><th>Name</th><th>Status</th><th>Last Synced</th><th></th></tr></thead>
+            <tbody>
+            @forelse($hsConnections as $conn)
+            <tr>
+                <td>{{ $conn->name }}</td>
+                <td>@include('components.stage-badge', ['stage' => $conn->is_active ? 'active' : 'closed'])</td>
+                <td class="text-sm text-muted">{{ $conn->last_synced_at?->diffForHumans() ?? 'Never' }}</td>
+                <td>
+                    <div class="table-actions">
+                        <form method="POST" action="{{ route('settings.integrations.hubspotCrm.test', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-secondary">Test</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.hubspotCrm.sync', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-primary">Sync</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.hubspotCrm.destroy', $conn) }}" style="display:inline">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this connection?')">Remove</button></form>
+                    </div>
+                </td>
+            </tr>
+            @empty
+            <tr><td colspan="4"><div class="empty-state"><p>No HubSpot connections</p><p class="empty-hint">Add a connection below using a HubSpot Private App access token</p></div></td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add HubSpot Connection
+            </span>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ route('settings.integrations.hubspotCrm.store') }}">
+                @csrf
+                <div class="form-group">
+                    <label>Connection Name *</label>
+                    <input type="text" name="name" class="form-control" value="{{ old('name', 'HubSpot - ' . (auth()->user()->currentOrganization()->name ?? '')) }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Private App Access Token *</label>
+                    <input type="password" name="access_token" class="form-control" required>
+                    <div class="form-hint">HubSpot → Settings → Integrations → Private Apps → Create. Scopes: crm.objects.deals.read, crm.objects.owners.read, crm.schemas.deals.read, calls/emails/meetings read</div>
+                </div>
+                <button type="submit" class="btn btn-primary">Add HubSpot Connection</button>
+            </form>
+        </div>
+    </div>
+
+    {{-- Section: Zoho CRM --}}
+    <div style="display:flex;align-items:center;gap:10px;margin:24px 0 14px">
+        <div style="width:32px;height:32px;background:#e65c19;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 10v6M4.22 4.22l4.24 4.24m7.08 7.08 4.24 4.24M1 12h6m10 0h6M4.22 19.78l4.24-4.24m7.08-7.08 4.24-4.24"/></svg>
+        </div>
+        <div>
+            <div style="font-weight:600;font-size:15px;color:var(--gray-800)">Zoho CRM</div>
+            <div style="font-size:12px;color:var(--gray-500)">Pull deals, calls, tasks, events from Zoho CRM (uses same OAuth tokens as Zoho Projects)</div>
+        </div>
+    </div>
+
+    @php $zcConnections = $integrationConnections->get('zoho_crm', collect()); @endphp
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/></svg>
+                Zoho CRM Connections
+            </span>
+        </div>
+        <table>
+            <thead><tr><th>Name</th><th>API Domain</th><th>Status</th><th>Last Synced</th><th></th></tr></thead>
+            <tbody>
+            @forelse($zcConnections as $conn)
+            <tr>
+                <td>{{ $conn->name }}</td>
+                <td class="text-sm text-muted">{{ $conn->credentials['api_domain'] ?? '—' }}</td>
+                <td>@include('components.stage-badge', ['stage' => $conn->is_active ? 'active' : 'closed'])</td>
+                <td class="text-sm text-muted">{{ $conn->last_synced_at?->diffForHumans() ?? 'Never' }}</td>
+                <td>
+                    <div class="table-actions">
+                        <form method="POST" action="{{ route('settings.integrations.zohoCrm.test', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-secondary">Test</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.zohoCrm.sync', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-primary">Sync</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.zohoCrm.destroy', $conn) }}" style="display:inline">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this connection?')">Remove</button></form>
+                    </div>
+                </td>
+            </tr>
+            @empty
+            <tr><td colspan="5"><div class="empty-state"><p>No Zoho CRM connections</p><p class="empty-hint">Add a connection below using a Zoho OAuth access token</p></div></td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Zoho CRM Connection
+            </span>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ route('settings.integrations.zohoCrm.store') }}">
+                @csrf
+                <div class="form-group">
+                    <label>Connection Name *</label>
+                    <input type="text" name="name" class="form-control" value="{{ old('name', 'Zoho CRM - ' . (auth()->user()->currentOrganization()->name ?? '')) }}" required>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="form-group">
+                        <label>Access Token *</label>
+                        <input type="password" name="access_token" class="form-control" required>
+                        <div class="form-hint">Generate at api-console.zoho.[in|com] with scopes: ZohoCRM.modules.deals.READ, ZohoCRM.modules.activities.READ, ZohoCRM.users.READ</div>
+                    </div>
+                    <div class="form-group">
+                        <label>API Domain</label>
+                        <input type="url" name="api_domain" class="form-control" value="{{ old('api_domain', 'https://www.zohoapis.in') }}" placeholder="https://www.zohoapis.in">
+                        <div class="form-hint">Use .com for US accounts, .in for India, etc.</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Refresh Token (optional)</label>
+                    <input type="password" name="refresh_token" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary">Add Zoho CRM Connection</button>
+            </form>
+        </div>
+    </div>
+
+</div>
+@endif
 
 @endsection

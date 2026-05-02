@@ -10,6 +10,9 @@ use App\Jobs\SyncDevOasTasksJob;
 use App\Jobs\SyncGitHubProjectsJob;
 use App\Jobs\SyncSlackMetricsJob;
 use App\Jobs\SyncTeamsMetricsJob;
+use App\Jobs\SyncSalesforceCrmJob;
+use App\Jobs\SyncHubspotCrmJob;
+use App\Jobs\SyncZohoCrmJob;
 use App\Models\IntegrationConnection;
 use App\Models\JiraConnection;
 use App\Models\ZohoPeopleConnection;
@@ -641,6 +644,177 @@ class IntegrationsController extends Controller
         $this->authorizeConnection($connection);
         $connection->delete();
         return back()->with('success', 'Microsoft Teams connection removed.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Salesforce CRM
+    // ─────────────────────────────────────────────────────────────
+
+    public function storeSalesforceCrm(Request $request)
+    {
+        $validated = $request->validate([
+            'name'          => 'required|string|max:255',
+            'instance_url'  => 'required|url',
+            'access_token'  => 'required|string',
+            'refresh_token' => 'nullable|string',
+            'client_id'     => 'nullable|string',
+            'client_secret' => 'nullable|string',
+        ]);
+
+        IntegrationConnection::create([
+            'organization_id' => Auth::user()->currentOrganizationId(),
+            'type'            => 'salesforce_crm',
+            'name'            => $validated['name'],
+            'credentials'     => [
+                'instance_url'  => rtrim($validated['instance_url'], '/'),
+                'access_token'  => $validated['access_token'],
+                'refresh_token' => $validated['refresh_token'] ?? null,
+                'client_id'     => $validated['client_id'] ?? null,
+                'client_secret' => $validated['client_secret'] ?? null,
+            ],
+        ]);
+
+        return back()->with('success', 'Salesforce CRM connection added.');
+    }
+
+    public function testSalesforceCrm(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        $creds = $connection->credentials;
+        try {
+            $resp = Http::withToken($creds['access_token'])->timeout(10)
+                ->get(rtrim($creds['instance_url'], '/') . '/services/data/v59.0/');
+            if ($resp->successful()) {
+                return back()->with('success', 'Salesforce connection is valid.');
+            }
+            return back()->with('error', 'Salesforce test failed: ' . $resp->status());
+        } catch (\Exception $e) {
+            return back()->with('error', 'Salesforce test failed: ' . $e->getMessage());
+        }
+    }
+
+    public function syncSalesforceCrm(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        SyncSalesforceCrmJob::dispatch($connection);
+        return back()->with('success', 'Salesforce CRM sync started.');
+    }
+
+    public function destroySalesforceCrm(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        $connection->delete();
+        return back()->with('success', 'Salesforce CRM connection removed.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // HubSpot CRM
+    // ─────────────────────────────────────────────────────────────
+
+    public function storeHubspotCrm(Request $request)
+    {
+        $validated = $request->validate([
+            'name'         => 'required|string|max:255',
+            'access_token' => 'required|string',
+        ]);
+
+        IntegrationConnection::create([
+            'organization_id' => Auth::user()->currentOrganizationId(),
+            'type'            => 'hubspot_crm',
+            'name'            => $validated['name'],
+            'credentials'     => ['access_token' => $validated['access_token']],
+        ]);
+
+        return back()->with('success', 'HubSpot CRM connection added.');
+    }
+
+    public function testHubspotCrm(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        try {
+            $resp = Http::withToken($connection->credentials['access_token'])->timeout(10)
+                ->get('https://api.hubapi.com/account-info/v3/details');
+            if ($resp->successful()) {
+                $portalId = $resp->json('portalId') ?? '?';
+                return back()->with('success', "HubSpot connection is valid (portal {$portalId}).");
+            }
+            return back()->with('error', 'HubSpot test failed: ' . $resp->status());
+        } catch (\Exception $e) {
+            return back()->with('error', 'HubSpot test failed: ' . $e->getMessage());
+        }
+    }
+
+    public function syncHubspotCrm(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        SyncHubspotCrmJob::dispatch($connection);
+        return back()->with('success', 'HubSpot CRM sync started.');
+    }
+
+    public function destroyHubspotCrm(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        $connection->delete();
+        return back()->with('success', 'HubSpot CRM connection removed.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Zoho CRM
+    // ─────────────────────────────────────────────────────────────
+
+    public function storeZohoCrm(Request $request)
+    {
+        $validated = $request->validate([
+            'name'          => 'required|string|max:255',
+            'access_token'  => 'required|string',
+            'refresh_token' => 'nullable|string',
+            'api_domain'    => 'nullable|url',
+        ]);
+
+        IntegrationConnection::create([
+            'organization_id' => Auth::user()->currentOrganizationId(),
+            'type'            => 'zoho_crm',
+            'name'            => $validated['name'],
+            'credentials'     => [
+                'access_token'  => $validated['access_token'],
+                'refresh_token' => $validated['refresh_token'] ?? null,
+                'api_domain'    => $validated['api_domain'] ?? 'https://www.zohoapis.in',
+            ],
+        ]);
+
+        return back()->with('success', 'Zoho CRM connection added.');
+    }
+
+    public function testZohoCrm(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        $creds = $connection->credentials;
+        $base  = rtrim($creds['api_domain'] ?? 'https://www.zohoapis.in', '/');
+        try {
+            $resp = Http::withHeaders(['Authorization' => 'Zoho-oauthtoken ' . $creds['access_token']])
+                ->timeout(10)
+                ->get($base . '/crm/v6/users?type=CurrentUser');
+            if ($resp->successful()) {
+                return back()->with('success', 'Zoho CRM connection is valid.');
+            }
+            return back()->with('error', 'Zoho CRM test failed: ' . ($resp->json('message') ?? $resp->status()));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Zoho CRM test failed: ' . $e->getMessage());
+        }
+    }
+
+    public function syncZohoCrm(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        SyncZohoCrmJob::dispatch($connection);
+        return back()->with('success', 'Zoho CRM sync started.');
+    }
+
+    public function destroyZohoCrm(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        $connection->delete();
+        return back()->with('success', 'Zoho CRM connection removed.');
     }
 
     // ─────────────────────────────────────────────────────────────

@@ -236,6 +236,24 @@ Route::middleware(['auth'])->group(function () {
         Route::post('integrations/github-projects/{connection}/sync', [IntegrationsController::class, 'syncGitHubProjects'])->name('integrations.githubProjects.sync');
         Route::delete('integrations/github-projects/{connection}', [IntegrationsController::class, 'destroyGitHubProjects'])->name('integrations.githubProjects.destroy');
 
+        // Salesforce CRM
+        Route::post('integrations/salesforce-crm', [IntegrationsController::class, 'storeSalesforceCrm'])->name('integrations.salesforceCrm.store');
+        Route::post('integrations/salesforce-crm/{connection}/test', [IntegrationsController::class, 'testSalesforceCrm'])->name('integrations.salesforceCrm.test');
+        Route::post('integrations/salesforce-crm/{connection}/sync', [IntegrationsController::class, 'syncSalesforceCrm'])->name('integrations.salesforceCrm.sync');
+        Route::delete('integrations/salesforce-crm/{connection}', [IntegrationsController::class, 'destroySalesforceCrm'])->name('integrations.salesforceCrm.destroy');
+
+        // HubSpot CRM
+        Route::post('integrations/hubspot-crm', [IntegrationsController::class, 'storeHubspotCrm'])->name('integrations.hubspotCrm.store');
+        Route::post('integrations/hubspot-crm/{connection}/test', [IntegrationsController::class, 'testHubspotCrm'])->name('integrations.hubspotCrm.test');
+        Route::post('integrations/hubspot-crm/{connection}/sync', [IntegrationsController::class, 'syncHubspotCrm'])->name('integrations.hubspotCrm.sync');
+        Route::delete('integrations/hubspot-crm/{connection}', [IntegrationsController::class, 'destroyHubspotCrm'])->name('integrations.hubspotCrm.destroy');
+
+        // Zoho CRM
+        Route::post('integrations/zoho-crm', [IntegrationsController::class, 'storeZohoCrm'])->name('integrations.zohoCrm.store');
+        Route::post('integrations/zoho-crm/{connection}/test', [IntegrationsController::class, 'testZohoCrm'])->name('integrations.zohoCrm.test');
+        Route::post('integrations/zoho-crm/{connection}/sync', [IntegrationsController::class, 'syncZohoCrm'])->name('integrations.zohoCrm.sync');
+        Route::delete('integrations/zoho-crm/{connection}', [IntegrationsController::class, 'destroyZohoCrm'])->name('integrations.zohoCrm.destroy');
+
         // Slack OAuth initiation + sync/destroy (no store form — uses OAuth)
         Route::get('integrations/auth/slack', [IntegrationsController::class, 'oauthSlack'])->name('integrations.oauth.slack');
         Route::post('integrations/slack/{connection}/sync', [IntegrationsController::class, 'syncSlack'])->name('integrations.slack.sync');
