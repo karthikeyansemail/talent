@@ -399,6 +399,8 @@
     </div>
 </div>
 
-{{-- Schedule Interview Modal --}}
+{{-- Schedule Interview Modal — only if interviews module enabled --}}
+@if(auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('interviews') ?? false))
 @include('components.schedule-interview-modal')
+@endif
 @endsection

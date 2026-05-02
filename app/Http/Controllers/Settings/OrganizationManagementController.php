@@ -95,4 +95,42 @@ class OrganizationManagementController extends Controller
 
         return back()->with('success', "Organization \"{$organization->name}\" updated.");
     }
+
+    /**
+     * Show module-toggle page for a single organization. Super admin only.
+     */
+    public function modules(Organization $organization)
+    {
+        $allModules = config('modules.modules', []);
+        $templates  = config('modules.templates', []);
+        $enabled    = $organization->enabled_modules ?: config('modules.legacy_default', []);
+
+        return view('settings.organizations.modules', compact('organization', 'allModules', 'templates', 'enabled'));
+    }
+
+    /**
+     * Save module toggles. Either apply a template or set custom modules.
+     */
+    public function updateModules(Request $request, Organization $organization)
+    {
+        $request->validate([
+            'industry_template' => 'required|in:software,sales,support,hybrid,custom',
+            'modules'           => 'array',
+            'modules.*'         => 'string|in:hiring,interviews,work_signals,resource_allocation,crm,customer_support',
+        ]);
+
+        $template = $request->input('industry_template');
+
+        if ($template !== 'custom') {
+            // Use template's preset module list — ignore the modules array
+            $organization->applyIndustryTemplate($template);
+        } else {
+            $organization->update([
+                'industry_template' => 'custom',
+                'enabled_modules'   => $request->input('modules', []),
+            ]);
+        }
+
+        return back()->with('success', "Modules updated for \"{$organization->name}\".");
+    }
 }

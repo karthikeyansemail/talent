@@ -125,6 +125,8 @@
     </div>
 </div>
 
+@php $_intvOn = auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('interviews') ?? false); @endphp
+@if($_intvOn)
 {{-- Interview Feedback --}}
 <div class="card">
     <div class="card-header">
@@ -172,7 +174,9 @@
 
 {{-- Interview Report --}}
 @include('components.interview-report', ['interviewSessions' => $application->interviewSessions])
+@endif {{-- $_intvOn --}}
 
+@if($_intvOn)
 {{-- Feedback Modal --}}
 <div class="modal-overlay" id="feedbackModal">
     <div class="modal">
@@ -225,4 +229,5 @@
 
 {{-- Schedule Interview Modal --}}
 @include('components.schedule-interview-modal')
+@endif {{-- $_intvOn modals --}}
 @endsection

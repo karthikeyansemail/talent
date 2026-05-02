@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\CheckRole::class,
             'ensure.org' => \App\Http\Middleware\EnsureOrganization::class,
             'premium' => \App\Http\Middleware\CheckPremium::class,
+            'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
         ]);
 
         // Webhooks use signature-based auth — no CSRF needed

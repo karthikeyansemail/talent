@@ -11,6 +11,7 @@ class Organization extends Model
         'is_premium', 'premium_expires_at', 'premium_features',
         'subscription_plan', 'subscription_expires_at', 'support_expires_at',
         'stripe_customer_id', 'stripe_subscription_id', 'razorpay_subscription_id',
+        'industry_template', 'enabled_modules',
     ];
 
     protected function casts(): array
@@ -25,6 +26,7 @@ class Organization extends Model
             'premium_features' => 'array',
             'subscription_expires_at' => 'datetime',
             'support_expires_at' => 'datetime',
+            'enabled_modules' => 'array',
         ];
     }
 
@@ -92,6 +94,39 @@ class Organization extends Model
             'self_hosted'      => 'Self-Hosted Enterprise',
             default            => 'Free',
         };
+    }
+
+    /**
+     * Module toggles (industry-aware feature gating).
+     *
+     * Returns true if this org has the given module enabled. NULL enabled_modules
+     * means a legacy org — falls back to config('modules.legacy_default') which
+     * mirrors the original IT-only behavior so existing orgs keep working.
+     *
+     * Use alongside (not instead of) canUse() — plan-level gating still applies.
+     */
+    public function canUseModule(string $module): bool
+    {
+        $enabled = $this->enabled_modules ?: config('modules.legacy_default', []);
+        return in_array($module, $enabled, true);
+    }
+
+    /**
+     * Apply an industry template, replacing enabled_modules with the template's
+     * default module list. Pass 'custom' to keep current modules unchanged
+     * (caller is responsible for setting them explicitly).
+     */
+    public function applyIndustryTemplate(string $template): void
+    {
+        $templates = config('modules.templates', []);
+        if (!isset($templates[$template])) {
+            return;
+        }
+        $this->industry_template = $template;
+        if ($template !== 'custom') {
+            $this->enabled_modules = $templates[$template]['modules'];
+        }
+        $this->save();
     }
 
     public function users() { return $this->hasMany(User::class); }

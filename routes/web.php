@@ -77,7 +77,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
     // Hiring (hr_manager, hiring_manager, org_admin, super_admin)
-    Route::middleware(['role:hr_manager,hiring_manager,org_admin,super_admin'])->group(function () {
+    Route::middleware(['role:hr_manager,hiring_manager,org_admin,super_admin', 'module:hiring'])->group(function () {
         // AI parsing routes (must be before resource routes to avoid conflict)
         Route::post('jobs/parse-document', [JobParserController::class, 'parse'])->name('jobs.parseDocument');
         Route::post('candidates/parse-resume', [CandidateParserController::class, 'parse'])->name('candidates.parseResume');
@@ -114,7 +114,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Interview assignment (HR/admin only — must be before interviews/{session} to avoid route conflict)
-    Route::middleware(['role:hr_manager,hiring_manager,org_admin,super_admin'])->group(function () {
+    Route::middleware(['role:hr_manager,hiring_manager,org_admin,super_admin', 'module:interviews'])->group(function () {
         Route::get('interviews/assign/create', [InterviewController::class, 'create'])->name('interviews.create');
         Route::post('interviews/assign', [InterviewController::class, 'store'])->name('interviews.store');
         Route::get('interviews/assign/search-employees', [InterviewController::class, 'searchEmployees'])->name('interviews.searchEmployees');
@@ -122,7 +122,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Live Interviews (interviewer + hiring roles)
-    Route::middleware(['role:interviewer,hr_manager,hiring_manager,org_admin,super_admin'])->group(function () {
+    Route::middleware(['role:interviewer,hr_manager,hiring_manager,org_admin,super_admin', 'module:interviews'])->group(function () {
         Route::get('interviews', [InterviewController::class, 'index'])->name('interviews.index');
         Route::get('interviews/{session}', [InterviewController::class, 'show'])->name('interviews.show');
         Route::post('interviews/{session}/start', [InterviewController::class, 'start'])->name('interviews.start');
@@ -146,8 +146,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('interviews/{session}/screenshot', [InterviewApiController::class, 'processScreenshot'])->name('interviews.api.screenshot');
     });
 
-    // Resource Allocation (resource_manager, org_admin, super_admin)
-    Route::middleware(['role:resource_manager,org_admin,super_admin'])->group(function () {
+    // Work Signals — Employees + signal intelligence dashboards
+    Route::middleware(['role:resource_manager,org_admin,super_admin', 'module:work_signals'])->group(function () {
         // Employee import routes (must be before resource route)
         Route::get('employees/import', [EmployeeImportController::class, 'showImport'])->name('employees.import');
         Route::post('employees/import/upload', [EmployeeImportController::class, 'uploadSpreadsheet'])->name('employees.import.upload');
@@ -169,7 +169,10 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('jira-connections', JiraConnectionController::class)->except(['show', 'edit', 'update']);
         Route::post('jira-connections/{jira_connection}/test', [JiraConnectionController::class, 'test'])->name('jira-connections.test');
         Route::post('jira-connections/{jira_connection}/sync', [JiraConnectionController::class, 'sync'])->name('jira-connections.sync');
+    });
 
+    // Resource Allocation — Projects (separate module)
+    Route::middleware(['role:resource_manager,org_admin,super_admin', 'module:resource_allocation'])->group(function () {
         // AI project parsing (must be before resource route)
         Route::post('projects/parse-document', [ProjectParserController::class, 'parse'])->name('projects.parseDocument');
 
@@ -296,6 +299,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('organizations', [OrganizationManagementController::class, 'store'])->name('organizations.store');
         Route::get('organizations/{organization}/edit', [OrganizationManagementController::class, 'edit'])->name('organizations.edit');
         Route::put('organizations/{organization}', [OrganizationManagementController::class, 'update'])->name('organizations.update');
+        Route::get('organizations/{organization}/modules', [OrganizationManagementController::class, 'modules'])->name('organizations.modules');
+        Route::put('organizations/{organization}/modules', [OrganizationManagementController::class, 'updateModules'])->name('organizations.updateModules');
 
         // SSO Configuration
         Route::get('sso', [SsoConfigController::class, 'index'])->name('sso.index');
@@ -303,7 +308,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Intelligence (premium feature, resource_manager, org_admin, super_admin)
-    Route::middleware(['role:resource_manager,org_admin,super_admin', 'premium'])
+    Route::middleware(['role:resource_manager,org_admin,super_admin', 'premium', 'module:work_signals'])
         ->prefix('intelligence')
         ->name('intelligence.')
         ->group(function () {
