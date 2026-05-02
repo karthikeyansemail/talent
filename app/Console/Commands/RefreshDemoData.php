@@ -149,6 +149,51 @@ class RefreshDemoData extends Command
                 ],
             ],
         ],
+
+        // ── Nalam Sales (org 6) — Salesforce CRM + Slack ──────────
+        // Sales team uses CRM signals (deals, calls, emails, pipeline) instead
+        // of Jira tasks. The 'crm' field is CRM-specific metric ranges.
+        6 => [
+            'source_type' => 'salesforce',  // task source not really applicable; kept for compat
+            'comm_source' => 'slack',
+            'employees' => [
+                'Arjun Mehra' => [
+                    'role' => 'sales_lead', 'trend' => 'stable',
+                    'signals' => ['msgs' => [42,52], 'active' => [5,5], 'collabs' => [17,22], 'after' => [12,18], 'calls' => [10,15], 'mtgs' => [14,18]],
+                    'crm' => ['deals' => [4,7], 'won_value' => [180000, 320000], 'pipeline' => [800000, 1400000], 'calls' => [25,40], 'emails' => [55,80], 'meetings' => [12,18]],
+                    'tasks' => ['done_rate' => [0.70,0.85], 'total' => [4,6], 'sp_range' => [1,5]],
+                    'snapshot' => ['ci' => [83,88], 'rs' => [70,76], 'wp' => [55,65], 'csi' => [42,50], 'cd' => [88,94]],
+                ],
+                'Priya Iyer' => [
+                    'role' => 'account_executive', 'trend' => 'growing',
+                    'signals' => ['msgs' => [38,48], 'active' => [5,5], 'collabs' => [14,18], 'after' => [10,14], 'calls' => [8,12], 'mtgs' => [12,16]],
+                    'crm' => ['deals' => [3,6], 'won_value' => [120000, 220000], 'pipeline' => [450000, 750000], 'calls' => [30,45], 'emails' => [70,100], 'meetings' => [10,15]],
+                    'tasks' => ['done_rate' => [0.78,0.88], 'total' => [4,6], 'sp_range' => [1,5]],
+                    'snapshot' => ['ci' => [86,91], 'rs' => [75,82], 'wp' => [50,58], 'csi' => [30,38], 'cd' => [78,85]],
+                ],
+                'Rahul Verma' => [
+                    'role' => 'account_executive', 'trend' => 'stable',
+                    'signals' => ['msgs' => [32,40], 'active' => [5,5], 'collabs' => [11,15], 'after' => [6,10], 'calls' => [6,9], 'mtgs' => [8,11]],
+                    'crm' => ['deals' => [2,4], 'won_value' => [60000, 110000], 'pipeline' => [180000, 320000], 'calls' => [25,35], 'emails' => [50,75], 'meetings' => [7,11]],
+                    'tasks' => ['done_rate' => [0.65,0.78], 'total' => [3,5], 'sp_range' => [1,3]],
+                    'snapshot' => ['ci' => [78,84], 'rs' => [68,74], 'wp' => [45,55], 'csi' => [28,35], 'cd' => [70,78]],
+                ],
+                'Deepa Singh' => [
+                    'role' => 'csm', 'trend' => 'stable',
+                    'signals' => ['msgs' => [30,38], 'active' => [5,5], 'collabs' => [12,16], 'after' => [4,7], 'calls' => [7,10], 'mtgs' => [10,13]],
+                    'crm' => ['deals' => [1,3], 'won_value' => [40000, 90000], 'pipeline' => [120000, 240000], 'calls' => [18,28], 'emails' => [40,65], 'meetings' => [10,14]],
+                    'tasks' => ['done_rate' => [0.75,0.85], 'total' => [3,5], 'sp_range' => [1,3]],
+                    'snapshot' => ['ci' => [82,88], 'rs' => [75,82], 'wp' => [42,52], 'csi' => [25,32], 'cd' => [80,86]],
+                ],
+                'Vikram Joshi' => [
+                    'role' => 'sdr', 'trend' => 'overloaded',
+                    'signals' => ['msgs' => [50,62], 'active' => [5,5], 'collabs' => [18,24], 'after' => [22,30], 'calls' => [14,20], 'mtgs' => [6,10]],
+                    'crm' => ['deals' => [0,1], 'won_value' => [0, 25000], 'pipeline' => [80000, 160000], 'calls' => [60,90], 'emails' => [120,180], 'meetings' => [4,8]],
+                    'tasks' => ['done_rate' => [0.55,0.68], 'total' => [4,6], 'sp_range' => [1,3]],
+                    'snapshot' => ['ci' => [68,76], 'rs' => [40,48], 'wp' => [78,86], 'csi' => [55,65], 'cd' => [85,92]],
+                ],
+            ],
+        ],
     ];
 
     // ── Task title templates per role ──────────────────────────────
@@ -227,6 +272,44 @@ class RefreshDemoData extends Command
             'Coordinate team building activity',
             'Review performance feedback submissions',
         ],
+        'sales_lead' => [
+            'Sales pipeline review with team',
+            'Q%d quota planning session',
+            'Strategic account review for %s',
+            'Coach team on objection handling',
+            'Approve discount request for enterprise deal',
+            'Update sales playbook with %s learnings',
+            'Forecast call with finance',
+            'Win/loss analysis for closed deals',
+        ],
+        'account_executive' => [
+            'Send proposal to %s prospect',
+            'Discovery call with new lead',
+            'Demo prep for enterprise opportunity',
+            'Negotiate contract terms with legal',
+            'Follow up on pricing question',
+            'Update opportunity stage in CRM',
+            'Prepare ROI deck for committee review',
+            'Schedule technical deep-dive with prospect',
+        ],
+        'csm' => [
+            'Quarterly business review with %s account',
+            'Onboard new customer team',
+            'Renewal call with at-risk account',
+            'Identify upsell opportunity in account',
+            'Customer health score review',
+            'Coordinate %s feature training',
+            'Escalate ticket to engineering',
+        ],
+        'sdr' => [
+            'Cold outreach campaign for %s segment',
+            'Qualify inbound lead from website',
+            'BANT scoring review',
+            'Update LinkedIn Sales Nav lists',
+            'Email sequence A/B test analysis',
+            'Book discovery call with qualified lead',
+            'Refresh ICP definition with %s data',
+        ],
     ];
 
     private array $featureWords = [
@@ -241,7 +324,7 @@ class RefreshDemoData extends Command
         $targetOrg = $this->option('org') ? (int) $this->option('org') : null;
         $numWeeks  = (int) $this->option('weeks');
 
-        $orgs = $targetOrg ? [$targetOrg] : [3, 4, 5];
+        $orgs = $targetOrg ? [$targetOrg] : [3, 4, 5, 6];
 
         foreach ($orgs as $orgId) {
             if (!isset($this->profiles[$orgId])) {
@@ -250,7 +333,13 @@ class RefreshDemoData extends Command
             }
 
             $orgConfig = $this->profiles[$orgId];
-            $orgName   = match($orgId) { 3 => 'Nalam Systems', 4 => 'Nalam Tech', 5 => 'Nalam Labs' };
+            $orgName   = match($orgId) {
+                3 => 'Nalam Systems',
+                4 => 'Nalam Tech',
+                5 => 'Nalam Labs',
+                6 => 'Nalam Sales',
+                default => "Org {$orgId}",
+            };
 
             $this->info("═══ Refreshing {$orgName} (org {$orgId}) ═══");
 
@@ -270,8 +359,13 @@ class RefreshDemoData extends Command
                     $emp = $employees[$name] ?? null;
                     if (!$emp) continue;
 
-                    // 1. Generate signals
+                    // 1. Generate comms signals (Slack/Teams metrics)
                     $this->generateSignals($emp, $orgId, $orgConfig['comm_source'], $period, $profile);
+
+                    // 1b. Generate CRM signals if profile has 'crm' block (sales orgs)
+                    if (isset($profile['crm'])) {
+                        $this->generateCrmSignals($emp, $orgId, $orgConfig['source_type'], $period, $profile['crm']);
+                    }
 
                     // 2. Generate tasks (only for current week to avoid duplicates)
                     if ($w === 0) {
@@ -317,6 +411,31 @@ class RefreshDemoData extends Command
         foreach ($metrics as [$key, $val, $unit]) {
             EmployeeSignal::updateOrCreate(
                 ['employee_id' => $emp->id, 'source_type' => $source, 'metric_key' => $key, 'period' => $period],
+                ['organization_id' => $orgId, 'metric_value' => $val, 'metric_unit' => $unit]
+            );
+        }
+    }
+
+    /**
+     * CRM-specific signals (deals closed, pipeline value, calls made, etc.)
+     * Mirrors the metric_keys produced by SyncSalesforceCrmJob / SyncHubspotCrmJob /
+     * SyncZohoCrmJob so the Sales Pulse dashboard renders the same metrics
+     * regardless of whether the data came from real CRM or this demo refresher.
+     */
+    private function generateCrmSignals(Employee $emp, int $orgId, string $crmSource, string $period, array $crm): void
+    {
+        $metrics = [
+            ['deals_closed_count',    rand($crm['deals'][0],     $crm['deals'][1]),     'count'],
+            ['deals_won_value',       rand($crm['won_value'][0], $crm['won_value'][1]), 'usd'],
+            ['pipeline_value_usd',    rand($crm['pipeline'][0],  $crm['pipeline'][1]),  'usd'],
+            ['calls_made_count',      rand($crm['calls'][0],     $crm['calls'][1]),     'count'],
+            ['emails_sent_count',     rand($crm['emails'][0],    $crm['emails'][1]),    'count'],
+            ['meetings_held_count',   rand($crm['meetings'][0],  $crm['meetings'][1]),  'count'],
+        ];
+
+        foreach ($metrics as [$key, $val, $unit]) {
+            EmployeeSignal::updateOrCreate(
+                ['employee_id' => $emp->id, 'source_type' => $crmSource, 'metric_key' => $key, 'period' => $period],
                 ['organization_id' => $orgId, 'metric_value' => $val, 'metric_unit' => $unit]
             );
         }

@@ -112,6 +112,31 @@ class Organization extends Model
     }
 
     /**
+     * Returns the appropriate dashboard label based on enabled modules.
+     * Used in views to swap "Work Pulse" for "Sales Pulse" / "Support Pulse"
+     * depending on what the org actually does.
+     */
+    public function pulseLabel(): string
+    {
+        $template   = $this->industry_template;
+        $hasWork    = $this->canUseModule('work_signals');
+        $hasCrm     = $this->canUseModule('crm');
+        $hasSupport = $this->canUseModule('customer_support');
+        $hasAlloc   = $this->canUseModule('resource_allocation');
+
+        // Industry template wins — explicit signal of org type
+        if ($template === 'sales')   return 'Sales Pulse';
+        if ($template === 'support') return 'Support Pulse';
+        if ($template === 'hybrid')  return 'Team Pulse';
+
+        // Otherwise, infer from enabled modules
+        if ($hasAlloc || $hasWork)         return 'Work Pulse';   // IT/project-based
+        if ($hasCrm)                        return 'Sales Pulse';
+        if ($hasSupport)                    return 'Support Pulse';
+        return 'Team Pulse';
+    }
+
+    /**
      * Apply an industry template, replacing enabled_modules with the template's
      * default module list. Pass 'custom' to keep current modules unchanged
      * (caller is responsible for setting them explicitly).

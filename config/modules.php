@@ -53,11 +53,14 @@ return [
         ],
         'sales' => [
             'label'    => 'Sales-Driven Organization',
-            'modules'  => ['hiring', 'interviews', 'crm'],
+            // work_signals is included so the sales pulse dashboard (which reuses
+            // the signal intelligence engine) is available. The label adapts to
+            // "Sales Pulse" automatically when work_signals + crm are both on.
+            'modules'  => ['hiring', 'interviews', 'work_signals', 'crm'],
         ],
         'support' => [
             'label'    => 'Customer Support / BPO',
-            'modules'  => ['hiring', 'interviews', 'customer_support'],
+            'modules'  => ['hiring', 'interviews', 'work_signals', 'customer_support'],
         ],
         'hybrid' => [
             'label'    => 'Hybrid (IT + Sales)',
