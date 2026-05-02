@@ -58,9 +58,18 @@
             </span>
             @endforeach
         </div>
+        @if(auth()->user()->isSuperAdmin())
+        <div style="margin-top:14px">
+            <a href="{{ route('settings.organizations.modules', $organization) }}" class="btn btn-sm btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                Manage Modules
+            </a>
+        </div>
+        @else
         <p style="margin:12px 0 0;font-size:12px;color:var(--gray-500)">
             To change which modules are active, contact your platform administrator.
         </p>
+        @endif
     </div>
 </div>
 @endsection
