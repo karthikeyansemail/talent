@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Organization extends Model
 {
     protected $fillable = [
-        'name', 'slug', 'domain', 'logo_path', 'settings', 'llm_config', 'asr_config', 'is_active',
+        'name', 'slug', 'domain', 'currency', 'logo_path', 'settings', 'llm_config', 'asr_config', 'is_active',
         'is_premium', 'premium_expires_at', 'premium_features',
         'subscription_plan', 'subscription_expires_at', 'support_expires_at',
         'stripe_customer_id', 'stripe_subscription_id', 'razorpay_subscription_id',
@@ -84,6 +84,29 @@ class Organization extends Model
             'self_hosted'      => null,
             default            => 50,
         };
+    }
+
+    /**
+     * Format a numeric amount in this org's currency. Display only — no
+     * conversion. Big numbers get compact notation ($1.4M, ₹85K).
+     */
+    public function formatMoney(float $amount): string
+    {
+        $code   = $this->currency ?: 'USD';
+        $cfg    = config("currencies.{$code}", ['symbol' => $code . ' ', 'position' => 'before']);
+        $symbol = $cfg['symbol'];
+
+        if ($amount >= 1_000_000) {
+            $value = number_format($amount / 1_000_000, 1) . 'M';
+        } elseif ($amount >= 1_000) {
+            $value = number_format($amount / 1_000, 0) . 'K';
+        } else {
+            $value = number_format($amount, 0);
+        }
+
+        return ($cfg['position'] ?? 'before') === 'before'
+            ? $symbol . $value
+            : $value . $symbol;
     }
 
     public function planLabel(): string

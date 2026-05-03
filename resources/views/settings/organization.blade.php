@@ -23,6 +23,19 @@
                 <label>Domain</label>
                 <input type="text" name="domain" class="form-control" value="{{ old('domain', $organization->domain) }}" placeholder="example.com">
             </div>
+            <div class="form-group">
+                <label>Currency</label>
+                <select name="currency" class="form-control" style="max-width:380px">
+                    @foreach(config('currencies', []) as $code => $cfg)
+                        <option value="{{ $code }}" {{ ($organization->currency ?? 'USD') === $code ? 'selected' : '' }}>
+                            {{ $cfg['symbol'] }}  {{ $code }} — {{ $cfg['name'] }}
+                        </option>
+                    @endforeach
+                </select>
+                <small class="text-muted" style="display:block;margin-top:6px">
+                    Used for monetary displays in Sales Pulse and other reports. Display only — no conversion is performed.
+                </small>
+            </div>
             <button type="submit" class="btn btn-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 Save Changes

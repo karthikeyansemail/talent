@@ -4,15 +4,14 @@
 @section('content')
 
 @php
+    $org = auth()->user()->currentOrganization();
     /**
-     * Format a metric value based on unit. USD gets compact notation
-     * for big numbers (e.g. $1.4M, $850K) — keeps the dashboard readable.
+     * Format a metric value based on unit. Money values use the org's
+     * configured currency (Settings → Workspace → Currency). No conversion.
      */
-    $fmtVal = function (float $value, string $unit): string {
-        if ($unit === 'usd') {
-            if ($value >= 1_000_000) return '$' . number_format($value / 1_000_000, 1) . 'M';
-            if ($value >= 1_000)     return '$' . number_format($value / 1_000, 0) . 'K';
-            return '$' . number_format($value, 0);
+    $fmtVal = function (float $value, string $unit) use ($org): string {
+        if ($unit === 'usd' || $unit === 'money') {
+            return $org ? $org->formatMoney($value) : number_format($value, 0);
         }
         return number_format($value, 0);
     };
