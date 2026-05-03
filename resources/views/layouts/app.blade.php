@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', $branding['app_name'] ?? 'Nalam Pulse')</title>
+
+    {{-- Apply theme BEFORE CSS loads to avoid flash. Reads server-saved
+         user preference, falls back to localStorage, then 'light'. --}}
+    <script>
+    (function() {
+        var serverPref = @json(auth()->user()->theme_preference ?? null);
+        var stored = localStorage.getItem('theme');
+        var pref = serverPref || stored || 'light';
+        document.documentElement.setAttribute('data-theme', pref);
+        // Keep localStorage in sync so the toggle UI starts from the right state
+        if (pref !== stored) localStorage.setItem('theme', pref);
+    })();
+    </script>
+
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     {!! $themeCss ?? '' !!}
 </head>
