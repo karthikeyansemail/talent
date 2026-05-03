@@ -13,6 +13,8 @@ use App\Jobs\SyncTeamsMetricsJob;
 use App\Jobs\SyncSalesforceCrmJob;
 use App\Jobs\SyncHubspotCrmJob;
 use App\Jobs\SyncZohoCrmJob;
+use App\Jobs\SyncZendeskSupportJob;
+use App\Jobs\SyncFreshdeskSupportJob;
 use App\Models\IntegrationConnection;
 use App\Models\JiraConnection;
 use App\Models\ZohoPeopleConnection;
@@ -815,6 +817,122 @@ class IntegrationsController extends Controller
         $this->authorizeConnection($connection);
         $connection->delete();
         return back()->with('success', 'Zoho CRM connection removed.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Zendesk Support
+    // ─────────────────────────────────────────────────────────────
+
+    public function storeZendesk(Request $request)
+    {
+        $validated = $request->validate([
+            'name'      => 'required|string|max:255',
+            'subdomain' => 'required|string|max:255',
+            'email'     => 'required|email',
+            'api_token' => 'required|string',
+        ]);
+
+        IntegrationConnection::create([
+            'organization_id' => Auth::user()->currentOrganizationId(),
+            'type'            => 'zendesk',
+            'name'            => $validated['name'],
+            'credentials'     => [
+                'subdomain' => trim($validated['subdomain']),
+                'email'     => $validated['email'],
+                'api_token' => $validated['api_token'],
+            ],
+        ]);
+
+        return back()->with('success', 'Zendesk connection added.');
+    }
+
+    public function testZendesk(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        $creds = $connection->credentials;
+        try {
+            $resp = Http::withBasicAuth($creds['email'] . '/token', $creds['api_token'])
+                ->timeout(10)
+                ->get("https://{$creds['subdomain']}.zendesk.com/api/v2/users/me.json");
+            if ($resp->successful()) {
+                $name = $resp->json('user.name') ?? 'unknown';
+                return back()->with('success', "Zendesk connection is valid (authenticated as {$name}).");
+            }
+            return back()->with('error', 'Zendesk test failed: ' . $resp->status());
+        } catch (\Exception $e) {
+            return back()->with('error', 'Zendesk test failed: ' . $e->getMessage());
+        }
+    }
+
+    public function syncZendesk(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        SyncZendeskSupportJob::dispatch($connection);
+        return back()->with('success', 'Zendesk sync started. Agent ticket signals will be updated shortly.');
+    }
+
+    public function destroyZendesk(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        $connection->delete();
+        return back()->with('success', 'Zendesk connection removed.');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Freshdesk Support
+    // ─────────────────────────────────────────────────────────────
+
+    public function storeFreshdesk(Request $request)
+    {
+        $validated = $request->validate([
+            'name'      => 'required|string|max:255',
+            'subdomain' => 'required|string|max:255',
+            'api_key'   => 'required|string',
+        ]);
+
+        IntegrationConnection::create([
+            'organization_id' => Auth::user()->currentOrganizationId(),
+            'type'            => 'freshdesk',
+            'name'            => $validated['name'],
+            'credentials'     => [
+                'subdomain' => trim($validated['subdomain']),
+                'api_key'   => $validated['api_key'],
+            ],
+        ]);
+
+        return back()->with('success', 'Freshdesk connection added.');
+    }
+
+    public function testFreshdesk(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        $creds = $connection->credentials;
+        try {
+            $resp = Http::withBasicAuth($creds['api_key'], 'X')
+                ->timeout(10)
+                ->get("https://{$creds['subdomain']}.freshdesk.com/api/v2/agents/me");
+            if ($resp->successful()) {
+                $name = $resp->json('contact.name') ?? 'unknown';
+                return back()->with('success', "Freshdesk connection is valid (authenticated as {$name}).");
+            }
+            return back()->with('error', 'Freshdesk test failed: ' . $resp->status());
+        } catch (\Exception $e) {
+            return back()->with('error', 'Freshdesk test failed: ' . $e->getMessage());
+        }
+    }
+
+    public function syncFreshdesk(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        SyncFreshdeskSupportJob::dispatch($connection);
+        return back()->with('success', 'Freshdesk sync started.');
+    }
+
+    public function destroyFreshdesk(IntegrationConnection $connection)
+    {
+        $this->authorizeConnection($connection);
+        $connection->delete();
+        return back()->with('success', 'Freshdesk connection removed.');
     }
 
     // ─────────────────────────────────────────────────────────────

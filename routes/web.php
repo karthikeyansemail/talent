@@ -23,6 +23,7 @@ use App\Http\Controllers\ResourceAllocation\EmployeeImportController;
 use App\Http\Controllers\Intelligence\SignalDashboardController;
 use App\Http\Controllers\Intelligence\SignalConfigController;
 use App\Http\Controllers\Sales\SalesPulseController;
+use App\Http\Controllers\Support\SupportPulseController;
 use App\Http\Controllers\ResourceAllocation\ProjectParserController;
 use App\Http\Controllers\Settings\LlmConfigController;
 use App\Http\Controllers\Settings\ScoringRulesController;
@@ -77,6 +78,11 @@ Route::middleware(['auth'])->group(function () {
     // independent of whether a CRM is actually connected (works for demo data too).
     Route::middleware(['module:crm'])->group(function () {
         Route::get('/sales-pulse', [SalesPulseController::class, 'index'])->name('sales.pulse');
+    });
+
+    // Support Pulse — same pattern as Sales Pulse but for customer-support metrics.
+    Route::middleware(['module:customer_support'])->group(function () {
+        Route::get('/support-pulse', [SupportPulseController::class, 'index'])->name('support.pulse');
     });
 
     // Profile (all authenticated users)
@@ -262,6 +268,18 @@ Route::middleware(['auth'])->group(function () {
         Route::post('integrations/zoho-crm/{connection}/test', [IntegrationsController::class, 'testZohoCrm'])->name('integrations.zohoCrm.test');
         Route::post('integrations/zoho-crm/{connection}/sync', [IntegrationsController::class, 'syncZohoCrm'])->name('integrations.zohoCrm.sync');
         Route::delete('integrations/zoho-crm/{connection}', [IntegrationsController::class, 'destroyZohoCrm'])->name('integrations.zohoCrm.destroy');
+
+        // Zendesk Support
+        Route::post('integrations/zendesk', [IntegrationsController::class, 'storeZendesk'])->name('integrations.zendesk.store');
+        Route::post('integrations/zendesk/{connection}/test', [IntegrationsController::class, 'testZendesk'])->name('integrations.zendesk.test');
+        Route::post('integrations/zendesk/{connection}/sync', [IntegrationsController::class, 'syncZendesk'])->name('integrations.zendesk.sync');
+        Route::delete('integrations/zendesk/{connection}', [IntegrationsController::class, 'destroyZendesk'])->name('integrations.zendesk.destroy');
+
+        // Freshdesk Support
+        Route::post('integrations/freshdesk', [IntegrationsController::class, 'storeFreshdesk'])->name('integrations.freshdesk.store');
+        Route::post('integrations/freshdesk/{connection}/test', [IntegrationsController::class, 'testFreshdesk'])->name('integrations.freshdesk.test');
+        Route::post('integrations/freshdesk/{connection}/sync', [IntegrationsController::class, 'syncFreshdesk'])->name('integrations.freshdesk.sync');
+        Route::delete('integrations/freshdesk/{connection}', [IntegrationsController::class, 'destroyFreshdesk'])->name('integrations.freshdesk.destroy');
 
         // Slack OAuth initiation + sync/destroy (no store form — uses OAuth)
         Route::get('integrations/auth/slack', [IntegrationsController::class, 'oauthSlack'])->name('integrations.oauth.slack');

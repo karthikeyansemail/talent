@@ -43,6 +43,15 @@
         <span style="font-size:11.5px;font-weight:400;color:var(--gray-500);padding-left:24px">Salesforce · HubSpot · Zoho CRM</span>
     </button>
     @endif
+    @if(auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('customer_support') ?? false))
+    <button class="tab" data-tab="tab-support" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 20px;height:auto;min-width:200px">
+        <span style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+            Customer Support
+        </span>
+        <span style="font-size:11.5px;font-weight:400;color:var(--gray-500);padding-left:24px">Zendesk · Freshdesk</span>
+    </button>
+    @endif
 </div>
 
 {{-- ===== PROJECT MANAGEMENT TAB ===== --}}
@@ -1009,6 +1018,167 @@
                     <input type="password" name="refresh_token" class="form-control">
                 </div>
                 <button type="submit" class="btn btn-primary">Add Zoho CRM Connection</button>
+            </form>
+        </div>
+    </div>
+
+</div>
+@endif
+
+{{-- ===== CUSTOMER SUPPORT TAB ===== --}}
+@if(auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('customer_support') ?? false))
+<div class="tab-content" id="tab-support">
+
+    {{-- Section: Zendesk --}}
+    <div style="display:flex;align-items:center;gap:10px;margin:24px 0 14px">
+        <div style="width:32px;height:32px;background:#03363d;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        </div>
+        <div>
+            <div style="font-weight:600;font-size:15px;color:var(--text)">Zendesk Support</div>
+            <div style="font-size:12px;color:var(--text-muted)">Sync agent ticket activity, resolution time, and CSAT scores</div>
+        </div>
+    </div>
+
+    @php $zdConnections = $integrationConnections->get('zendesk', collect()); @endphp
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/></svg>
+                Zendesk Connections
+            </span>
+        </div>
+        <table>
+            <thead><tr><th>Name</th><th>Subdomain</th><th>Status</th><th>Last Synced</th><th></th></tr></thead>
+            <tbody>
+            @forelse($zdConnections as $conn)
+            <tr>
+                <td>{{ $conn->name }}</td>
+                <td class="text-sm text-muted">{{ $conn->credentials['subdomain'] ?? '—' }}.zendesk.com</td>
+                <td>@include('components.stage-badge', ['stage' => $conn->is_active ? 'active' : 'closed'])</td>
+                <td class="text-sm text-muted">{{ $conn->last_synced_at?->diffForHumans() ?? 'Never' }}</td>
+                <td>
+                    <div class="table-actions">
+                        <form method="POST" action="{{ route('settings.integrations.zendesk.test', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-secondary">Test</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.zendesk.sync', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-primary">Sync</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.zendesk.destroy', $conn) }}" style="display:inline">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this connection?')">Remove</button></form>
+                    </div>
+                </td>
+            </tr>
+            @empty
+            <tr><td colspan="5"><div class="empty-state"><p>No Zendesk connections</p><p class="empty-hint">Add a connection below to pull agent ticket signals from Zendesk</p></div></td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Zendesk Connection
+            </span>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ route('settings.integrations.zendesk.store') }}">
+                @csrf
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="form-group">
+                        <label>Connection Name *</label>
+                        <input type="text" name="name" class="form-control" value="{{ old('name', 'Zendesk - ' . (auth()->user()->currentOrganization()->name ?? '')) }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Subdomain *</label>
+                        <input type="text" name="subdomain" class="form-control" value="{{ old('subdomain') }}" placeholder="yourcompany" required>
+                        <div class="form-hint">From your URL: {subdomain}.zendesk.com</div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="form-group">
+                        <label>API User Email *</label>
+                        <input type="email" name="email" class="form-control" value="{{ old('email') }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>API Token *</label>
+                        <input type="password" name="api_token" class="form-control" required>
+                        <div class="form-hint">Admin → Apps & Integrations → APIs → Token Access</div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Zendesk Connection</button>
+            </form>
+        </div>
+    </div>
+
+    {{-- Section: Freshdesk --}}
+    <div style="display:flex;align-items:center;gap:10px;margin:24px 0 14px">
+        <div style="width:32px;height:32px;background:#25c16f;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div>
+            <div style="font-weight:600;font-size:15px;color:var(--text)">Freshdesk Support</div>
+            <div style="font-size:12px;color:var(--text-muted)">Sync ticket counts, satisfaction surveys, and resolution metrics from Freshdesk</div>
+        </div>
+    </div>
+
+    @php $fdConnections = $integrationConnections->get('freshdesk', collect()); @endphp
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Freshdesk Connections
+            </span>
+        </div>
+        <table>
+            <thead><tr><th>Name</th><th>Subdomain</th><th>Status</th><th>Last Synced</th><th></th></tr></thead>
+            <tbody>
+            @forelse($fdConnections as $conn)
+            <tr>
+                <td>{{ $conn->name }}</td>
+                <td class="text-sm text-muted">{{ $conn->credentials['subdomain'] ?? '—' }}.freshdesk.com</td>
+                <td>@include('components.stage-badge', ['stage' => $conn->is_active ? 'active' : 'closed'])</td>
+                <td class="text-sm text-muted">{{ $conn->last_synced_at?->diffForHumans() ?? 'Never' }}</td>
+                <td>
+                    <div class="table-actions">
+                        <form method="POST" action="{{ route('settings.integrations.freshdesk.test', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-secondary">Test</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.freshdesk.sync', $conn) }}" style="display:inline">@csrf<button type="submit" class="btn btn-sm btn-primary">Sync</button></form>
+                        <form method="POST" action="{{ route('settings.integrations.freshdesk.destroy', $conn) }}" style="display:inline">@csrf @method('DELETE')<button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this connection?')">Remove</button></form>
+                    </div>
+                </td>
+            </tr>
+            @empty
+            <tr><td colspan="5"><div class="empty-state"><p>No Freshdesk connections</p><p class="empty-hint">Add a connection below using a Freshdesk API key</p></div></td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Freshdesk Connection
+            </span>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ route('settings.integrations.freshdesk.store') }}">
+                @csrf
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="form-group">
+                        <label>Connection Name *</label>
+                        <input type="text" name="name" class="form-control" value="{{ old('name', 'Freshdesk - ' . (auth()->user()->currentOrganization()->name ?? '')) }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Subdomain *</label>
+                        <input type="text" name="subdomain" class="form-control" value="{{ old('subdomain') }}" placeholder="yourcompany" required>
+                        <div class="form-hint">From your URL: {subdomain}.freshdesk.com</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>API Key *</label>
+                    <input type="password" name="api_key" class="form-control" required>
+                    <div class="form-hint">Profile (top right) → API Key. Used as basic auth username with 'X' as password.</div>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Freshdesk Connection</button>
             </form>
         </div>
     </div>

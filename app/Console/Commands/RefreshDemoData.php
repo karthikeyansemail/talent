@@ -194,6 +194,52 @@ class RefreshDemoData extends Command
                 ],
             ],
         ],
+
+        // ── Nalam Support (org 7) — Zendesk/Freshdesk + Slack ──────
+        // Customer support / BPO team. The 'support' field carries
+        // ticket-resolution metric ranges that mirror what Zendesk and
+        // Freshdesk sync jobs produce.
+        7 => [
+            'source_type' => 'zendesk',
+            'comm_source' => 'slack',
+            'employees' => [
+                'Sundar Pillai' => [
+                    'role' => 'support_lead', 'trend' => 'stable',
+                    'signals' => ['msgs' => [55,68], 'active' => [5,5], 'collabs' => [22,28], 'after' => [10,16], 'calls' => [8,12], 'mtgs' => [12,16]],
+                    'support' => ['resolved' => [55,75], 'assigned' => [60,80], 'open' => [4,8], 'first_resp' => [8,15], 'resolution' => [180,260], 'csat' => [88,94], 'reopen' => [3,7]],
+                    'tasks' => ['done_rate' => [0.78,0.88], 'total' => [4,6], 'sp_range' => [1,3]],
+                    'snapshot' => ['ci' => [85,90], 'rs' => [72,78], 'wp' => [55,65], 'csi' => [40,48], 'cd' => [88,94]],
+                ],
+                'Aisha Banu' => [
+                    'role' => 'qa', 'trend' => 'growing',
+                    'signals' => ['msgs' => [42,52], 'active' => [5,5], 'collabs' => [16,20], 'after' => [5,9], 'calls' => [4,7], 'mtgs' => [10,14]],
+                    'support' => ['resolved' => [25,35], 'assigned' => [28,40], 'open' => [2,5], 'first_resp' => [10,18], 'resolution' => [200,300], 'csat' => [92,97], 'reopen' => [1,4]],
+                    'tasks' => ['done_rate' => [0.85,0.92], 'total' => [4,6], 'sp_range' => [1,5]],
+                    'snapshot' => ['ci' => [88,93], 'rs' => [78,84], 'wp' => [48,55], 'csi' => [25,32], 'cd' => [78,86]],
+                ],
+                'Ramesh Kannan' => [
+                    'role' => 'support_engineer', 'trend' => 'stable',
+                    'signals' => ['msgs' => [38,46], 'active' => [5,5], 'collabs' => [14,18], 'after' => [12,18], 'calls' => [6,10], 'mtgs' => [6,9]],
+                    'support' => ['resolved' => [38,52], 'assigned' => [42,58], 'open' => [5,9], 'first_resp' => [15,30], 'resolution' => [240,420], 'csat' => [82,90], 'reopen' => [5,10]],
+                    'tasks' => ['done_rate' => [0.70,0.82], 'total' => [3,5], 'sp_range' => [2,5]],
+                    'snapshot' => ['ci' => [78,84], 'rs' => [68,75], 'wp' => [60,68], 'csi' => [38,45], 'cd' => [70,78]],
+                ],
+                'Fatima Rahman' => [
+                    'role' => 'support_specialist', 'trend' => 'stable',
+                    'signals' => ['msgs' => [48,58], 'active' => [5,5], 'collabs' => [18,22], 'after' => [4,8], 'calls' => [12,18], 'mtgs' => [4,7]],
+                    'support' => ['resolved' => [70,90], 'assigned' => [75,95], 'open' => [3,7], 'first_resp' => [4,9], 'resolution' => [60,140], 'csat' => [86,92], 'reopen' => [4,8]],
+                    'tasks' => ['done_rate' => [0.72,0.82], 'total' => [3,5], 'sp_range' => [1,3]],
+                    'snapshot' => ['ci' => [82,87], 'rs' => [72,78], 'wp' => [62,72], 'csi' => [30,38], 'cd' => [82,88]],
+                ],
+                'Arjun Bhat' => [
+                    'role' => 'support_associate', 'trend' => 'overloaded',
+                    'signals' => ['msgs' => [35,45], 'active' => [5,5], 'collabs' => [10,14], 'after' => [22,32], 'calls' => [8,12], 'mtgs' => [3,6]],
+                    'support' => ['resolved' => [40,55], 'assigned' => [55,75], 'open' => [12,20], 'first_resp' => [25,45], 'resolution' => [180,320], 'csat' => [70,80], 'reopen' => [12,20]],
+                    'tasks' => ['done_rate' => [0.55,0.68], 'total' => [3,5], 'sp_range' => [1,3]],
+                    'snapshot' => ['ci' => [62,72], 'rs' => [38,46], 'wp' => [78,86], 'csi' => [50,60], 'cd' => [65,72]],
+                ],
+            ],
+        ],
     ];
 
     // ── Task title templates per role ──────────────────────────────
@@ -310,6 +356,47 @@ class RefreshDemoData extends Command
             'Book discovery call with qualified lead',
             'Refresh ICP definition with %s data',
         ],
+        'support_lead' => [
+            'Weekly SLA review with team',
+            'Root-cause analysis for %s outage tickets',
+            '1-on-1 coaching session with agent',
+            'Update escalation playbook',
+            'Review CSAT trend report',
+            'Approve refund/credit request',
+            'Conduct ticket audit for Q%d',
+        ],
+        'qa' => [
+            'QA score review for top 10 tickets',
+            'Update knowledge base for %s issue',
+            'Coaching feedback for new agents',
+            'Calibration session with team leads',
+            'Refresh response macros for %s',
+            'Audit chat transcripts for tone compliance',
+        ],
+        'support_engineer' => [
+            'Debug API integration issue for enterprise customer',
+            'Reproduce reported bug in %s flow',
+            'Write knowledge base article for %s',
+            'Escalate confirmed bug to engineering',
+            'Pair with developer on %s root cause',
+            'Document workaround for %s edge case',
+        ],
+        'support_specialist' => [
+            'Handle escalated Tier 1 ticket queue',
+            'Live chat coverage during peak hours',
+            'Process refund request for order #%d',
+            'Reply to backlog of email tickets',
+            'Update customer on %s status',
+            'Resolve billing dispute for account',
+        ],
+        'support_associate' => [
+            'Handle inbound chat queue',
+            'Process simple account update tickets',
+            'Tag and route incoming tickets',
+            'Respond to FAQ inquiries',
+            'Confirm shipping status for orders',
+            'Update ticket statuses in bulk',
+        ],
     ];
 
     private array $featureWords = [
@@ -324,7 +411,7 @@ class RefreshDemoData extends Command
         $targetOrg = $this->option('org') ? (int) $this->option('org') : null;
         $numWeeks  = (int) $this->option('weeks');
 
-        $orgs = $targetOrg ? [$targetOrg] : [3, 4, 5, 6];
+        $orgs = $targetOrg ? [$targetOrg] : [3, 4, 5, 6, 7];
 
         foreach ($orgs as $orgId) {
             if (!isset($this->profiles[$orgId])) {
@@ -338,6 +425,7 @@ class RefreshDemoData extends Command
                 4 => 'Nalam Tech',
                 5 => 'Nalam Labs',
                 6 => 'Nalam Sales',
+                7 => 'Nalam Support',
                 default => "Org {$orgId}",
             };
 
@@ -365,6 +453,11 @@ class RefreshDemoData extends Command
                     // 1b. Generate CRM signals if profile has 'crm' block (sales orgs)
                     if (isset($profile['crm'])) {
                         $this->generateCrmSignals($emp, $orgId, $orgConfig['source_type'], $period, $profile['crm']);
+                    }
+
+                    // 1c. Generate support signals if profile has 'support' block (BPO/helpdesk orgs)
+                    if (isset($profile['support'])) {
+                        $this->generateSupportSignals($emp, $orgId, $orgConfig['source_type'], $period, $profile['support']);
                     }
 
                     // 2. Generate tasks (only for current week to avoid duplicates)
@@ -436,6 +529,32 @@ class RefreshDemoData extends Command
         foreach ($metrics as [$key, $val, $unit]) {
             EmployeeSignal::updateOrCreate(
                 ['employee_id' => $emp->id, 'source_type' => $crmSource, 'metric_key' => $key, 'period' => $period],
+                ['organization_id' => $orgId, 'metric_value' => $val, 'metric_unit' => $unit]
+            );
+        }
+    }
+
+    /**
+     * Customer-support specific signals (tickets, response time, CSAT).
+     * Mirrors metric_keys produced by SyncZendeskSupportJob /
+     * SyncFreshdeskSupportJob so the Support Pulse dashboard renders
+     * the same metrics regardless of source.
+     */
+    private function generateSupportSignals(Employee $emp, int $orgId, string $supportSource, string $period, array $support): void
+    {
+        $metrics = [
+            ['tickets_resolved_count',  rand($support['resolved'][0],   $support['resolved'][1]),   'count'],
+            ['tickets_assigned_count',  rand($support['assigned'][0],   $support['assigned'][1]),   'count'],
+            ['tickets_open_count',      rand($support['open'][0],       $support['open'][1]),       'count'],
+            ['first_response_time_min', rand($support['first_resp'][0], $support['first_resp'][1]), 'minutes'],
+            ['avg_resolution_time_min', rand($support['resolution'][0], $support['resolution'][1]), 'minutes'],
+            ['csat_score',              rand($support['csat'][0],       $support['csat'][1]),       'percent'],
+            ['reopen_rate_pct',         round(rand($support['reopen'][0]*10, $support['reopen'][1]*10) / 10, 1), 'percent'],
+        ];
+
+        foreach ($metrics as [$key, $val, $unit]) {
+            EmployeeSignal::updateOrCreate(
+                ['employee_id' => $emp->id, 'source_type' => $supportSource, 'metric_key' => $key, 'period' => $period],
                 ['organization_id' => $orgId, 'metric_value' => $val, 'metric_unit' => $unit]
             );
         }
