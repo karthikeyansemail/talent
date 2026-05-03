@@ -591,7 +591,9 @@ a:hover {
     padding: 0;
     margin-bottom: 24px;
     box-shadow: var(--shadow-xs);
-    overflow: hidden;
+    /* overflow: visible so native select dropdowns + tooltips can spill
+       outside the card boundary. The border-radius still clips its
+       own border via background/border, just not children. */
 }
 
 .card-body {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Services\ThemeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -26,5 +27,27 @@ class OrganizationController extends Controller
 
         Auth::user()->currentOrganization()->update($validated);
         return back()->with('success', 'Organization updated.');
+    }
+
+    /**
+     * Org admin chooses their org's color theme. Available to org_admin
+     * (super admin can also change any org's theme via Platform Branding).
+     */
+    public function updateTheme(Request $request)
+    {
+        $request->validate([
+            'theme' => 'required|string|in:' . implode(',', array_keys(ThemeService::palettes())),
+        ]);
+
+        $org = Auth::user()->currentOrganization();
+        if (!$org) {
+            return back()->with('error', 'No organization context.');
+        }
+
+        $settings = $org->settings ?? [];
+        $settings['theme'] = $request->theme;
+        $org->update(['settings' => $settings]);
+
+        return back()->with('success', 'Theme updated.');
     }
 }

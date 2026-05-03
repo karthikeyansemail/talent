@@ -201,6 +201,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:org_admin,super_admin'])->prefix('settings')->name('settings.')->group(function () {
         Route::get('organization', [OrganizationController::class, 'edit'])->name('organization.edit');
         Route::put('organization', [OrganizationController::class, 'update'])->name('organization.update');
+        Route::put('organization/theme', [OrganizationController::class, 'updateTheme'])->name('organization.theme');
         Route::resource('users', UserManagementController::class)->except(['show']);
         Route::get('departments', [DepartmentController::class, 'index'])->name('departments.index');
         Route::post('departments', [DepartmentController::class, 'store'])->name('departments.store');

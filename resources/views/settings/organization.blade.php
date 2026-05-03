@@ -44,6 +44,60 @@
     </div>
 </div>
 
+{{-- Color Theme picker — org admin can choose org's brand palette --}}
+@php
+    $_palettes      = \App\Services\ThemeService::palettes();
+    $_currentTheme  = ($organization->settings['theme'] ?? 'indigo_night');
+@endphp
+<div class="card" style="margin-top:20px">
+    <div class="card-header">
+        <span class="card-header-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20 4 4 0 0 1 0-8 4 4 0 0 0 0-8"/><circle cx="12" cy="12" r="2"/></svg>
+            Color Theme
+        </span>
+    </div>
+    <div class="card-body">
+        <p style="margin:0 0 16px;font-size:13px;color:var(--text-muted)">
+            Pick a color palette for your workspace. Affects sidebar, buttons, and accent colors. Each user can independently toggle dark/light mode using the button at the bottom of the sidebar.
+        </p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px">
+            @foreach($_palettes as $key => $palette)
+            <form method="POST" action="{{ route('settings.organization.theme') }}" style="margin:0">
+                @csrf @method('PUT')
+                <input type="hidden" name="theme" value="{{ $key }}">
+                <button type="submit"
+                    style="width:100%;padding:12px;border:2px solid {{ $_currentTheme === $key ? $palette['colors']['--primary'] : 'var(--border)' }};background:var(--bg-card);border-radius:10px;cursor:pointer;text-align:left;transition:transform 0.15s, border-color 0.15s"
+                    onmouseover="this.style.transform='translateY(-2px)'"
+                    onmouseout="this.style.transform='translateY(0)'"
+                    title="{{ $palette['name'] }}">
+                    {{-- Mini preview: sidebar swatch + content area --}}
+                    <div style="display:flex;height:60px;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px">
+                        <div style="width:30%;background:{{ $palette['colors']['--sidebar-bg'] }};display:flex;flex-direction:column;justify-content:center;padding:0 6px;gap:4px">
+                            <div style="height:4px;background:{{ $palette['colors']['--sidebar-active-text'] }};border-radius:2px;width:80%"></div>
+                            <div style="height:3px;background:{{ $palette['colors']['--sidebar-text'] }};border-radius:2px;width:60%;opacity:0.5"></div>
+                            <div style="height:3px;background:{{ $palette['colors']['--sidebar-text'] }};border-radius:2px;width:70%;opacity:0.5"></div>
+                        </div>
+                        <div style="flex:1;background:var(--bg-card);position:relative">
+                            <div style="position:absolute;top:8px;left:8px;right:8px;height:6px;background:{{ $palette['colors']['--primary'] }};border-radius:3px;width:40%"></div>
+                            <div style="position:absolute;top:22px;left:8px;right:8px;height:3px;background:var(--gray-200);border-radius:2px"></div>
+                            <div style="position:absolute;top:30px;left:8px;right:8px;height:3px;background:var(--gray-200);border-radius:2px;width:60%"></div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between">
+                        <span style="font-size:12.5px;font-weight:600;color:var(--text)">{{ $palette['name'] }}</span>
+                        @if($_currentTheme === $key)
+                        <span style="display:inline-flex;width:18px;height:18px;border-radius:50%;background:{{ $palette['colors']['--primary'] }};color:#fff;align-items:center;justify-content:center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        @endif
+                    </div>
+                </button>
+            </form>
+            @endforeach
+        </div>
+    </div>
+</div>
+
 {{-- Active modules summary (read-only for org admin — super admin manages from All Workspaces) --}}
 @php
     $_allModules = config('modules.modules', []);
