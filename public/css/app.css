@@ -538,14 +538,20 @@ a:hover {
 }
 .org-switcher-select {
     padding: 5px 28px 5px 10px;
-    border: 1px solid var(--gray-300);
+    border: 1px solid var(--border);
     border-radius: 6px;
-    background: white;
+    background: var(--bg-input);
     font-size: 13px;
     font-family: var(--font);
-    color: var(--gray-700);
+    color: var(--text);
     cursor: pointer;
     max-width: 220px;
+}
+/* Dark mode: ensure dropdown options are also readable
+   (browsers inherit from select for option styling) */
+:root[data-theme="dark"] .org-switcher-select option {
+    background: var(--bg-elevated);
+    color: var(--text);
 }
 .org-switcher-select:focus {
     outline: none;
@@ -880,6 +886,14 @@ select.form-control {
     background-size: 16px;
     padding-right: 40px;
     cursor: pointer;
+}
+
+/* Native option lists need explicit dark colors — they don't inherit
+   from the select element's CSS in most browsers. */
+:root[data-theme="dark"] select option,
+:root[data-theme="dark"] select optgroup {
+    background: var(--bg-elevated);
+    color: var(--text);
 }
 
 select.form-control:focus {
