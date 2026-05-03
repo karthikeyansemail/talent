@@ -22,6 +22,7 @@ use App\Http\Controllers\Settings\IntegrationsController;
 use App\Http\Controllers\ResourceAllocation\EmployeeImportController;
 use App\Http\Controllers\Intelligence\SignalDashboardController;
 use App\Http\Controllers\Intelligence\SignalConfigController;
+use App\Http\Controllers\Sales\SalesPulseController;
 use App\Http\Controllers\ResourceAllocation\ProjectParserController;
 use App\Http\Controllers\Settings\LlmConfigController;
 use App\Http\Controllers\Settings\ScoringRulesController;
@@ -71,6 +72,12 @@ Route::post('/reset-password', [ForgotPasswordController::class, 'reset'])->name
 Route::middleware(['auth'])->group(function () {
     Route::get('/', fn() => redirect('/dashboard'));
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Sales Pulse — CRM activity dashboard. Reads from EmployeeSignal directly,
+    // independent of whether a CRM is actually connected (works for demo data too).
+    Route::middleware(['module:crm'])->group(function () {
+        Route::get('/sales-pulse', [SalesPulseController::class, 'index'])->name('sales.pulse');
+    });
 
     // Profile (all authenticated users)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
