@@ -207,6 +207,16 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 Profile &amp; Password
             </a>
+            <button type="button" id="themeToggleBtn"
+                style="background:none;border:none;cursor:pointer;color:var(--sidebar-text);padding:4px;opacity:0.5;transition:opacity 0.15s;display:flex;align-items:center"
+                title="Toggle dark mode"
+                onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'"
+                aria-label="Toggle theme">
+                {{-- Sun icon (visible in dark mode) --}}
+                <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                {{-- Moon icon (visible in light mode) --}}
+                <svg id="themeIconMoon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
             <form action="{{ route('logout') }}" method="POST" style="margin:0">
                 @csrf
                 <button type="submit" style="background:none;border:none;cursor:pointer;color:var(--sidebar-text);padding:4px;opacity:0.5;transition:opacity 0.15s;display:flex;align-items:center" title="Sign out" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
@@ -268,6 +278,55 @@
     </div>
 
     <script src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
+
+    {{-- Theme toggle wiring. Cycles light → dark on click. Persists to
+         localStorage immediately + DB asynchronously (best-effort). --}}
+    <script>
+    (function() {
+        var btn  = document.getElementById('themeToggleBtn');
+        var sun  = document.getElementById('themeIconSun');
+        var moon = document.getElementById('themeIconMoon');
+        if (!btn || !sun || !moon) return;
+
+        function effectiveTheme() {
+            var pref = document.documentElement.getAttribute('data-theme');
+            if (pref === 'auto') {
+                return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            return pref || 'light';
+        }
+        function syncIcons() {
+            var dark = effectiveTheme() === 'dark';
+            sun.style.display  = dark ? 'block' : 'none';
+            moon.style.display = dark ? 'none'  : 'block';
+        }
+        syncIcons();
+
+        btn.addEventListener('click', function() {
+            var next = effectiveTheme() === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            syncIcons();
+
+            // Persist to user record (best-effort, ignore failures)
+            fetch('{{ route('profile.theme') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ theme_preference: next })
+            }).catch(function() { /* silent */ });
+        });
+
+        // If user picks 'auto', re-sync icons when system preference changes
+        if (window.matchMedia) {
+            matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncIcons);
+        }
+    })();
+    </script>
+
     @yield('scripts')
     @stack('scripts')
 </body>

@@ -82,6 +82,7 @@ Route::middleware(['auth'])->group(function () {
     // Profile (all authenticated users)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/theme', [ProfileController::class, 'updateTheme'])->name('profile.theme');
 
     // Hiring (hr_manager, hiring_manager, org_admin, super_admin)
     Route::middleware(['role:hr_manager,hiring_manager,org_admin,super_admin', 'module:hiring'])->group(function () {

@@ -35,4 +35,21 @@ class ProfileController extends Controller
 
         return back()->with('success', 'Profile updated successfully.');
     }
+
+    /**
+     * Persist the user's chosen theme (light/dark/auto). Called from the
+     * sidebar toggle; failure is silently ignored on the client side.
+     */
+    public function updateTheme(Request $request)
+    {
+        $request->validate([
+            'theme_preference' => 'required|in:light,dark,auto',
+        ]);
+
+        $user = Auth::user();
+        $user->theme_preference = $request->theme_preference;
+        $user->save();
+
+        return response()->json(['ok' => true, 'theme' => $user->theme_preference]);
+    }
 }
