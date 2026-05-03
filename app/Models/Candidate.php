@@ -9,6 +9,7 @@ class Candidate extends Model
     protected $fillable = [
         'organization_id', 'first_name', 'last_name', 'email', 'phone',
         'current_company', 'current_title', 'experience_years', 'skills', 'source', 'notes',
+        'enrollment_number', 'course', 'batch_year',
     ];
 
     protected function casts(): array

@@ -44,6 +44,21 @@ return [
             'description' => 'Customer support performance from Zendesk, Freshdesk. Ticket allocation.',
             'icon'        => 'headphones',
         ],
+        'placement_drives' => [
+            'label'       => 'Placement Drives',
+            'description' => 'Manage company recruitment drives at the institution. Track student enrollment per drive.',
+            'icon'        => 'briefcase',
+        ],
+        'aptitude_tests' => [
+            'label'       => 'Aptitude Tests',
+            'description' => 'AI-generated aptitude tests (MCQ + descriptive). Public token-URL test pages auto-graded with AI.',
+            'icon'        => 'check-square',
+        ],
+        'student_tracking' => [
+            'label'       => 'Student Progress Tracking',
+            'description' => 'Per-student improvement charts across drives, skill heatmaps, placement readiness scoring.',
+            'icon'        => 'trending-up',
+        ],
     ],
 
     'templates' => [
@@ -65,6 +80,13 @@ return [
         'hybrid' => [
             'label'    => 'Hybrid (IT + Sales)',
             'modules'  => ['hiring', 'interviews', 'work_signals', 'resource_allocation', 'crm'],
+        ],
+        'education' => [
+            'label'    => 'Education / Placement Training',
+            // No 'hiring' — colleges run placement drives, not job posts.
+            // No 'work_signals' — students aren't tracked via work tools.
+            // 'interviews' is reused for the staff-conducted interview round.
+            'modules'  => ['placement_drives', 'aptitude_tests', 'student_tracking', 'interviews'],
         ],
         'custom' => [
             'label'    => 'Custom — Pick Modules Manually',

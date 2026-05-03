@@ -54,6 +54,9 @@
             $_modAlloc   = $_isSuper || ($_navOrg?->canUseModule('resource_allocation') ?? false);
             $_modCrm     = $_isSuper || ($_navOrg?->canUseModule('crm') ?? false);
             $_modSupport = $_isSuper || ($_navOrg?->canUseModule('customer_support') ?? false);
+            $_modDrives  = $_isSuper || ($_navOrg?->canUseModule('placement_drives') ?? false);
+            $_modTests   = $_isSuper || ($_navOrg?->canUseModule('aptitude_tests') ?? false);
+            $_modStudent = $_isSuper || ($_navOrg?->canUseModule('student_tracking') ?? false);
         @endphp
         <nav class="sidebar-nav">
             <a href="{{ route('dashboard') }}" class="sidebar-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
@@ -125,6 +128,33 @@
                 <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
                 Helpdesk Connections
             </a>
+            @endif
+
+            {{-- ── EDUCATION / PLACEMENT TRAINING ── --}}
+            @if(auth()->user()->hasAnyRole(['hr_manager','hiring_manager','org_admin','super_admin']) && ($_modDrives || $_modTests || $_modStudent))
+            <div class="sidebar-heading">Placement Training</div>
+            @if($_modDrives)
+            <a href="{{ route('placement.drives.index') }}" data-module="hiring" class="sidebar-link {{ request()->routeIs('placement.drives.*') ? 'active' : '' }}">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"/></svg></span>
+                Placement Drives
+            </a>
+            <a href="{{ route('placement.students.index') }}" data-module="hiring" class="sidebar-link {{ request()->routeIs('placement.students.*') ? 'active' : '' }}">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></span>
+                Students
+            </a>
+            @endif
+            @if($_modTests)
+            <a href="{{ route('placement.tests.index') }}" data-module="interviews" class="sidebar-link {{ request()->routeIs('placement.tests.*') ? 'active' : '' }}">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+                Aptitude Tests
+            </a>
+            @endif
+            @if($_modStudent)
+            <a href="{{ route('placement.progress.index') }}" data-module="signals" class="sidebar-link {{ request()->routeIs('placement.progress.*') ? 'active' : '' }}">
+                <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+                Student Progress
+            </a>
+            @endif
             @endif
 
             {{-- ── RESOURCE ALLOCATION: Project Managers ── --}}

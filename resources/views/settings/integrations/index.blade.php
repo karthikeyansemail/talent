@@ -4,9 +4,22 @@
 @section('content')
 <div class="page-header"><h1>Integrations</h1></div>
 
+@php
+    // Tabs are gated by enabled modules so an org only sees integrations
+    // relevant to what they actually use. Super admins see everything.
+    $_org = auth()->user()->currentOrganization();
+    $_isSuper = auth()->user()->isSuperAdmin();
+    $_showWork    = $_isSuper || ($_org?->canUseModule('work_signals') ?? false);
+    $_showCrm     = $_isSuper || ($_org?->canUseModule('crm') ?? false);
+    $_showSupport = $_isSuper || ($_org?->canUseModule('customer_support') ?? false);
+    // First visible tab gets the 'active' class — pick the first eligible
+    $_firstActive = $_showWork ? 'tab-project-mgmt' : ($_showCrm ? 'tab-crm' : ($_showSupport ? 'tab-support' : 'tab-project-mgmt'));
+@endphp
+
 {{-- Category Tabs --}}
 <div class="tabs" data-tabs style="margin-bottom:0;border-bottom:none">
-    <button class="tab active" data-tab="tab-project-mgmt" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 20px;height:auto;min-width:200px">
+    @if($_showWork)
+    <button class="tab {{ $_firstActive === 'tab-project-mgmt' ? 'active' : '' }}" data-tab="tab-project-mgmt" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 20px;height:auto;min-width:200px">
         <span style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
             Project Management
@@ -34,8 +47,9 @@
         </span>
         <span style="font-size:11.5px;font-weight:400;color:var(--gray-500);padding-left:24px">GitHub · Code Intelligence</span>
     </button>
-    @if(auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('crm') ?? false))
-    <button class="tab" data-tab="tab-crm" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 20px;height:auto;min-width:200px">
+    @endif {{-- $_showWork end --}}
+    @if($_showCrm)
+    <button class="tab {{ $_firstActive === 'tab-crm' ? 'active' : '' }}" data-tab="tab-crm" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 20px;height:auto;min-width:200px">
         <span style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Sales CRM
@@ -43,8 +57,8 @@
         <span style="font-size:11.5px;font-weight:400;color:var(--gray-500);padding-left:24px">Salesforce · HubSpot · Zoho CRM</span>
     </button>
     @endif
-    @if(auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('customer_support') ?? false))
-    <button class="tab" data-tab="tab-support" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 20px;height:auto;min-width:200px">
+    @if($_showSupport)
+    <button class="tab {{ $_firstActive === 'tab-support' ? 'active' : '' }}" data-tab="tab-support" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 20px;height:auto;min-width:200px">
         <span style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
             Customer Support
@@ -55,7 +69,8 @@
 </div>
 
 {{-- ===== PROJECT MANAGEMENT TAB ===== --}}
-<div class="tab-content active" id="tab-project-mgmt">
+@if($_showWork)
+<div class="tab-content {{ $_firstActive === 'tab-project-mgmt' ? 'active' : '' }}" id="tab-project-mgmt">
 
     {{-- Section: Jira --}}
     <div style="display:flex;align-items:center;gap:10px;margin:24px 0 14px">
@@ -786,10 +801,11 @@
     </div>
 
 </div>
+@endif {{-- $_showWork tab-content end --}}
 
 {{-- ===== SALES CRM TAB ===== --}}
-@if(auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('crm') ?? false))
-<div class="tab-content" id="tab-crm">
+@if($_showCrm)
+<div class="tab-content {{ $_firstActive === 'tab-crm' ? 'active' : '' }}" id="tab-crm">
 
     {{-- Section: Salesforce --}}
     <div style="display:flex;align-items:center;gap:10px;margin:24px 0 14px">
@@ -1026,8 +1042,8 @@
 @endif
 
 {{-- ===== CUSTOMER SUPPORT TAB ===== --}}
-@if(auth()->user()->isSuperAdmin() || (auth()->user()->currentOrganization()?->canUseModule('customer_support') ?? false))
-<div class="tab-content" id="tab-support">
+@if($_showSupport)
+<div class="tab-content {{ $_firstActive === 'tab-support' ? 'active' : '' }}" id="tab-support">
 
     {{-- Section: Zendesk --}}
     <div style="display:flex;align-items:center;gap:10px;margin:24px 0 14px">

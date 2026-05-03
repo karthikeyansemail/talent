@@ -24,6 +24,10 @@ use App\Http\Controllers\Intelligence\SignalDashboardController;
 use App\Http\Controllers\Intelligence\SignalConfigController;
 use App\Http\Controllers\Sales\SalesPulseController;
 use App\Http\Controllers\Support\SupportPulseController;
+use App\Http\Controllers\Placement\PlacementDriveController;
+use App\Http\Controllers\Placement\StudentController as PlacementStudentController;
+use App\Http\Controllers\Placement\AptitudeTestController;
+use App\Http\Controllers\Placement\StudentProgressController;
 use App\Http\Controllers\ResourceAllocation\ProjectParserController;
 use App\Http\Controllers\Settings\LlmConfigController;
 use App\Http\Controllers\Settings\ScoringRulesController;
@@ -84,6 +88,23 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['module:customer_support'])->group(function () {
         Route::get('/support-pulse', [SupportPulseController::class, 'index'])->name('support.pulse');
     });
+
+    // ── Education / Placement Training ──
+    Route::middleware(['role:hr_manager,hiring_manager,org_admin,super_admin'])
+        ->prefix('placement')
+        ->name('placement.')
+        ->group(function () {
+            Route::middleware(['module:placement_drives'])->group(function () {
+                Route::get('drives',   [PlacementDriveController::class, 'index'])->name('drives.index');
+                Route::get('students', [PlacementStudentController::class, 'index'])->name('students.index');
+            });
+            Route::middleware(['module:aptitude_tests'])->group(function () {
+                Route::get('tests', [AptitudeTestController::class, 'index'])->name('tests.index');
+            });
+            Route::middleware(['module:student_tracking'])->group(function () {
+                Route::get('progress', [StudentProgressController::class, 'index'])->name('progress.index');
+            });
+        });
 
     // Profile (all authenticated users)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

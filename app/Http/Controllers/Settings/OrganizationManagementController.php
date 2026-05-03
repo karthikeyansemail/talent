@@ -114,9 +114,9 @@ class OrganizationManagementController extends Controller
     public function updateModules(Request $request, Organization $organization)
     {
         $request->validate([
-            'industry_template' => 'required|in:software,sales,support,hybrid,custom',
+            'industry_template' => 'required|in:software,sales,support,hybrid,education,custom',
             'modules'           => 'array',
-            'modules.*'         => 'string|in:hiring,interviews,work_signals,resource_allocation,crm,customer_support',
+            'modules.*'         => 'string|in:hiring,interviews,work_signals,resource_allocation,crm,customer_support,placement_drives,aptitude_tests,student_tracking',
         ]);
 
         $template = $request->input('industry_template');
