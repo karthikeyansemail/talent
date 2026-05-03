@@ -113,7 +113,7 @@
    var(--gray-X) and var(--white) usages adapt automatically.
    The original `--white` stays #ffffff for use on colored backgrounds
    (button text, badge text, etc.) — use --bg-card for theme-aware white. */
-[data-theme="dark"] {
+:root[data-theme="dark"] {
     /* Adjusted neutrals for dark mode (inverted intent, not literal inversion) */
     --gray-25:  #0f1320;
     --gray-50:  #131826;
