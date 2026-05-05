@@ -37,10 +37,22 @@ async def generate_aptitude_test(
     )
 
     prompt = get_aptitude_generate_prompt(request)
-    result = await llm_client.generate_json(prompt, APTITUDE_GENERATE_SYSTEM)
+
+    # Estimate tokens needed: ~500 per MCQ (4 options + correct + topic + diff
+    # + marks) and ~900 per descriptive (full ideal_answer + rubric). Add 500
+    # for title/instructions/structure overhead, then 30% safety margin.
+    est_per_mcq = 500
+    est_per_desc = 900
+    est_total = (request.num_mcq * est_per_mcq) + (request.num_descriptive * est_per_desc) + 500
+    max_tokens = max(4096, min(16000, int(est_total * 1.3)))
+
+    result = await llm_client.generate_json(prompt, APTITUDE_GENERATE_SYSTEM, max_tokens=max_tokens)
 
     if not result:
-        raise ValueError("LLM returned empty response for aptitude test generation.")
+        raise ValueError(
+            "LLM returned empty/unparseable response for aptitude test generation. "
+            f"Try fewer questions or lower difficulty. (max_tokens={max_tokens})"
+        )
 
     try:
         response = AptitudeTestResponse(**result)

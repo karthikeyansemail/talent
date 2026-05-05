@@ -53,31 +53,22 @@ class LLMClient:
     # Core generation
     # ------------------------------------------------------------------
 
-    async def generate(self, prompt: str, system_message: str = "") -> str:
+    async def generate(self, prompt: str, system_message: str = "", max_tokens: int = 4096) -> str:
         """Send a prompt to the configured LLM and return the raw text response.
 
-        Parameters
-        ----------
-        prompt:
-            The user-facing prompt / question.
-        system_message:
-            An optional system-level instruction prepended to the conversation.
-
-        Returns
-        -------
-        str
-            The model's text reply.
+        ``max_tokens`` defaults to 4096 — bump it for endpoints that need
+        long structured output (e.g. aptitude test with 13+ questions).
         """
         try:
             if self.provider in ("openai", "azure_openai"):
-                return await self._generate_openai(prompt, system_message)
+                return await self._generate_openai(prompt, system_message, max_tokens)
             else:
-                return await self._generate_anthropic(prompt, system_message)
+                return await self._generate_anthropic(prompt, system_message, max_tokens)
         except Exception:
             logger.exception("LLM generation failed (provider=%s)", self.provider)
             raise
 
-    async def _generate_openai(self, prompt: str, system_message: str) -> str:
+    async def _generate_openai(self, prompt: str, system_message: str, max_tokens: int = 4096) -> str:
         """Works for both OpenAI and Azure OpenAI (same SDK interface)."""
         messages: list[dict] = []
         if system_message:
@@ -88,14 +79,14 @@ class LLMClient:
             model=self.model,
             messages=messages,
             temperature=0.2,
-            max_tokens=4096,
+            max_tokens=max_tokens,
         )
         return response.choices[0].message.content or ""
 
-    async def _generate_anthropic(self, prompt: str, system_message: str) -> str:
+    async def _generate_anthropic(self, prompt: str, system_message: str, max_tokens: int = 4096) -> str:
         kwargs: dict = {
             "model": self.model,
-            "max_tokens": 4096,
+            "max_tokens": max_tokens,
             "temperature": 0.2,
             "messages": [{"role": "user", "content": prompt}],
         }
@@ -193,8 +184,11 @@ class LLMClient:
             logger.error("Failed to parse vision LLM response as JSON:\n%s", raw[:500])
             return {}
 
-    async def generate_json(self, prompt: str, system_message: str = "") -> dict:
+    async def generate_json(self, prompt: str, system_message: str = "", max_tokens: int = 4096) -> dict:
         """Generate a response and parse it as JSON.
+
+        ``max_tokens`` defaults to 4096 — bump it for large structured
+        outputs (e.g. multi-question test generation that may exceed that).
 
         The method is lenient: it will attempt to extract a JSON object from
         markdown fenced code blocks (```json ... ```), or fall back to parsing
@@ -205,7 +199,7 @@ class LLMClient:
         dict
             Parsed JSON object, or an empty ``dict`` on failure.
         """
-        raw = await self.generate(prompt, system_message)
+        raw = await self.generate(prompt, system_message, max_tokens=max_tokens)
 
         # Try to extract from fenced code blocks first.
         code_block_match = re.search(
