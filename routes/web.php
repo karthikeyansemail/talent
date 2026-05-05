@@ -28,6 +28,7 @@ use App\Http\Controllers\Placement\PlacementDriveController;
 use App\Http\Controllers\Placement\StudentController as PlacementStudentController;
 use App\Http\Controllers\Placement\AptitudeTestController;
 use App\Http\Controllers\Placement\StudentProgressController;
+use App\Http\Controllers\Placement\PublicTestController;
 use App\Http\Controllers\ResourceAllocation\ProjectParserController;
 use App\Http\Controllers\Settings\LlmConfigController;
 use App\Http\Controllers\Settings\ScoringRulesController;
@@ -58,6 +59,18 @@ Route::get('/auth/{provider}/redirect', [SsoController::class, 'redirect'])
 Route::get('/auth/{provider}/callback', [SsoController::class, 'callback'])
     ->where('provider', 'google|microsoft|okta')
     ->name('sso.callback');
+
+// ── Public student test pages (no auth) ──
+// Token URL is the only barrier. Single attempt per email enforced server-side.
+Route::prefix('placement/test')->name('placement.public.')->group(function () {
+    Route::get('{token}',                   [PublicTestController::class, 'landing'])->name('landing');
+    Route::post('{token}/start',            [PublicTestController::class, 'start'])->name('start');
+    Route::get('attempt/{attempt}/take',    [PublicTestController::class, 'take'])->name('take');
+    Route::post('attempt/{attempt}/save',   [PublicTestController::class, 'saveAnswer'])->name('save');
+    Route::post('attempt/{attempt}/submit', [PublicTestController::class, 'submit'])->name('submit');
+    Route::get('attempt/{attempt}/result',  [PublicTestController::class, 'result'])->name('result');
+    Route::get('attempt/{attempt}/result/status', [PublicTestController::class, 'resultStatus'])->name('resultStatus');
+});
 
 // Auth
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
