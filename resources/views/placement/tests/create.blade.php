@@ -19,7 +19,7 @@
 </div>
 @else
 
-<form method="POST" action="{{ route('placement.tests.generate') }}">
+<form id="generateForm" method="POST" action="{{ route('placement.tests.generate') }}">
     @csrf
     <div class="card">
         <div class="card-header"><span class="card-header-icon">Test Settings</span></div>
@@ -83,7 +83,7 @@
             </div>
 
             <div class="flex gap-10" style="margin-top:20px">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" id="generateBtn" class="btn btn-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                     Generate with AI
                 </button>
@@ -93,4 +93,127 @@
     </div>
 </form>
 @endif
+
+{{-- Progress overlay shown while AI is generating --}}
+<div id="genOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border-radius:14px;padding:32px 40px;max-width:480px;width:90%;text-align:center;box-shadow:var(--shadow-lg)">
+        <div style="display:inline-flex;width:56px;height:56px;border-radius:50%;background:var(--primary-100);align-items:center;justify-content:center;margin-bottom:18px">
+            <div style="width:36px;height:36px;border:3px solid var(--primary-200);border-top-color:var(--primary);border-radius:50%;animation:spin 0.9s linear infinite"></div>
+        </div>
+        <h3 style="margin:0 0 8px;font-size:18px;color:var(--text-strong)">Generating Aptitude Test</h3>
+        <p id="genPhase" style="margin:0;color:var(--text-muted);font-size:14px;line-height:1.5">Queued for AI generation…</p>
+        <div style="margin-top:18px;height:6px;background:var(--bg-muted);border-radius:3px;overflow:hidden">
+            <div id="genBar" style="height:100%;background:var(--primary);width:5%;transition:width 0.3s ease"></div>
+        </div>
+        <p id="genHint" style="margin:14px 0 0;color:var(--text-subtle);font-size:12px">
+            This usually takes 20-60 seconds depending on question count.
+        </p>
+        <p id="genError" style="display:none;margin:14px 0 0;color:var(--danger);font-size:13px"></p>
+    </div>
+</div>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
+<script>
+(function() {
+    var form = document.getElementById('generateForm');
+    if (!form) return;
+    var btn = document.getElementById('generateBtn');
+    var overlay = document.getElementById('genOverlay');
+    var phaseEl = document.getElementById('genPhase');
+    var bar = document.getElementById('genBar');
+    var errEl = document.getElementById('genError');
+
+    var pct = 5;
+    var phaseTimer = null;
+    var pollTimer  = null;
+
+    function bumpProgress(target, label) {
+        // Smoothly grow toward target percentage
+        var step = function() {
+            if (pct < target) {
+                pct = Math.min(target, pct + 1);
+                bar.style.width = pct + '%';
+                requestAnimationFrame(step);
+            }
+        };
+        requestAnimationFrame(step);
+        if (label) phaseEl.textContent = label;
+    }
+
+    function showError(msg) {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+        phaseEl.textContent = 'Generation failed';
+        bar.style.background = 'var(--danger)';
+        // Allow user to close after 3s
+        setTimeout(function() {
+            overlay.style.display = 'none';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }, 4000);
+    }
+
+    form.addEventListener('submit', function(ev) {
+        ev.preventDefault();
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        overlay.style.display = 'flex';
+        pct = 5; bar.style.width = '5%'; bar.style.background = 'var(--primary)';
+        errEl.style.display = 'none';
+
+        // Animated phase progression while we wait for the queue + AI
+        var phases = [
+            { delay:  500,  pct: 15, label: 'Sending request to AI service…' },
+            { delay: 4000,  pct: 35, label: 'AI is composing questions…' },
+            { delay: 12000, pct: 55, label: 'Crafting MCQ options + correct answers…' },
+            { delay: 22000, pct: 75, label: 'Building descriptive prompts + grading rubrics…' },
+            { delay: 35000, pct: 88, label: 'Final quality pass…' },
+            { delay: 55000, pct: 95, label: 'Almost there…' },
+        ];
+        phases.forEach(function(p) {
+            setTimeout(function() { bumpProgress(p.pct, p.label); }, p.delay);
+        });
+
+        var fd = new FormData(form);
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' },
+            body: fd
+        })
+        .then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(j) { throw new Error(j.error || j.message || ('HTTP ' + r.status)); });
+            }
+            return r.json();
+        })
+        .then(function(data) {
+            if (data.status !== 'queued') {
+                throw new Error(data.error || 'Failed to queue generation.');
+            }
+            // Start polling
+            pollTimer = setInterval(function() {
+                fetch(data.status_url, { headers: { 'Accept': 'application/json' } })
+                .then(function(r) { return r.json(); })
+                .then(function(s) {
+                    if (s.status === 'complete') {
+                        clearInterval(pollTimer);
+                        bumpProgress(100, 'Done! Opening editor…');
+                        setTimeout(function() { window.location = s.redirect; }, 600);
+                    } else if (s.status === 'failed') {
+                        clearInterval(pollTimer);
+                        showError(s.error || 'AI generation failed. Make sure the AI service + queue worker are running.');
+                    } else if (s.status === 'running' && s.phase) {
+                        // Server-reported phase (e.g. "Saving questions...") overrides client animation
+                        phaseEl.textContent = s.phase;
+                    }
+                })
+                .catch(function() { /* ignore transient poll errors */ });
+            }, 2000);
+        })
+        .catch(function(err) {
+            showError(err.message);
+        });
+    });
+})();
+</script>
 @endsection

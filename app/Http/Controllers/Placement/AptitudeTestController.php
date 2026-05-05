@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Placement;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateAptitudeTestJob;
 use App\Models\AptitudeTest;
 use App\Models\PlacementDrive;
 use App\Models\TestQuestion;
-use App\Services\AiServiceClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class AptitudeTestController extends Controller
@@ -41,8 +42,9 @@ class AptitudeTestController extends Controller
     }
 
     /**
-     * Generate a test via AI from a placement drive's context, persist the
-     * questions, and redirect to the editor for review.
+     * Kick off async AI test generation. Creates the test row immediately,
+     * dispatches a queued job to populate questions, returns JSON with test ID
+     * + status URL so the frontend can poll progress.
      */
     public function generate(Request $request)
     {
@@ -60,60 +62,67 @@ class AptitudeTestController extends Controller
             ->findOrFail($validated['placement_drive_id']);
 
         if ($validated['num_mcq'] + $validated['num_descriptive'] === 0) {
-            return back()->with('error', 'At least one question type must have count > 0.')->withInput();
+            return response()->json(['error' => 'At least one question type must have count > 0.'], 422);
         }
 
-        $client = new AiServiceClient();
-        $result = $client->generateAptitudeTest([
-            'company_name'      => $drive->company_name,
-            'role_title'        => $drive->role_title,
-            'role_description'  => $drive->description ?? '',
-            'required_skills'   => $drive->required_skills ?? [],
-            'eligible_courses'  => $drive->eligible_courses ?? [],
-            'num_mcq'           => $validated['num_mcq'],
-            'num_descriptive'   => $validated['num_descriptive'],
-            'difficulty'        => $validated['difficulty'],
-        ], $drive->organization_id);
+        // Create test record up front (empty, status=draft)
+        $test = AptitudeTest::create([
+            'placement_drive_id' => $drive->id,
+            'organization_id'    => $drive->organization_id,
+            'title'              => $validated['title'] ?: "{$drive->company_name} Aptitude Test",
+            'instructions'       => '',
+            'time_limit_minutes' => $validated['time_limit_minutes'],
+            'passing_score_pct'  => $validated['passing_score_pct'],
+            'status'             => 'draft',
+        ]);
 
-        if (isset($result['error'])) {
-            return back()->with('error', 'AI test generation failed: ' . ($result['error'] ?? 'unknown'))->withInput();
-        }
+        // Seed cache so the polling endpoint sees "running" immediately
+        Cache::put(GenerateAptitudeTestJob::cacheKey($test->id), [
+            'status' => 'running',
+            'phase'  => 'Queued for AI generation…',
+        ], now()->addMinutes(10));
 
-        // Persist test + questions
-        $test = DB::transaction(function () use ($drive, $result, $validated) {
-            $test = AptitudeTest::create([
-                'placement_drive_id' => $drive->id,
-                'organization_id'    => $drive->organization_id,
-                'title'              => $validated['title'] ?: ($result['title'] ?? "{$drive->company_name} Aptitude Test"),
-                'instructions'       => $result['instructions'] ?? '',
-                'time_limit_minutes' => $validated['time_limit_minutes'],
-                'passing_score_pct'  => $validated['passing_score_pct'],
-                'status'             => 'draft',
-            ]);
+        // Dispatch async job
+        GenerateAptitudeTestJob::dispatch($test->id, [
+            'company_name'     => $drive->company_name,
+            'role_title'       => $drive->role_title,
+            'role_description' => $drive->description ?? '',
+            'required_skills'  => $drive->required_skills ?? [],
+            'eligible_courses' => $drive->eligible_courses ?? [],
+            'num_mcq'          => $validated['num_mcq'],
+            'num_descriptive'  => $validated['num_descriptive'],
+            'difficulty'       => $validated['difficulty'],
+        ]);
 
-            foreach (($result['questions'] ?? []) as $i => $q) {
-                TestQuestion::create([
-                    'aptitude_test_id'    => $test->id,
-                    'order'               => $i + 1,
-                    'type'                => $q['type'] ?? 'mcq',
-                    'question_text'       => $q['question_text'] ?? '',
-                    'context'             => $q['context'] ?? null,
-                    'topic'               => $q['topic'] ?? null,
-                    'difficulty'          => $q['difficulty'] ?? 'medium',
-                    'marks'               => $q['marks'] ?? 1,
-                    'options'             => $q['options'] ?? null,
-                    'correct_option'      => $q['correct_option'] ?? null,
-                    'ideal_answer'        => $q['ideal_answer'] ?? null,
-                    'rubric_points'       => $q['rubric_points'] ?? null,
-                    'expected_word_count' => $q['expected_word_count'] ?? null,
+        return response()->json([
+            'status'     => 'queued',
+            'test_id'    => $test->id,
+            'status_url' => route('placement.tests.generationStatus', $test),
+        ]);
+    }
+
+    /**
+     * Status polling endpoint for in-progress AI generation. Returns JSON
+     * with current phase, or { status:'complete', redirect: '...' } when done.
+     */
+    public function generationStatus(AptitudeTest $test)
+    {
+        $this->authorizeTest($test);
+        $state = Cache::get(GenerateAptitudeTestJob::cacheKey($test->id));
+
+        // No cache + has questions = generation finished long ago and cache expired
+        if (!$state) {
+            $count = $test->questions()->count();
+            if ($count > 0) {
+                return response()->json([
+                    'status'   => 'complete',
+                    'redirect' => route('placement.tests.edit', $test),
                 ]);
             }
+            return response()->json(['status' => 'unknown']);
+        }
 
-            return $test;
-        });
-
-        return redirect()->route('placement.tests.edit', $test)
-            ->with('success', "Generated {$test->questions()->count()} questions. Review + edit before publishing.");
+        return response()->json($state);
     }
 
     public function show(AptitudeTest $test)

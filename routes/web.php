@@ -118,6 +118,7 @@ Route::middleware(['auth'])->group(function () {
                 Route::get('tests',                                   [AptitudeTestController::class, 'index'])->name('tests.index');
                 Route::get('tests/create',                            [AptitudeTestController::class, 'create'])->name('tests.create');
                 Route::post('tests/generate',                         [AptitudeTestController::class, 'generate'])->name('tests.generate');
+                Route::get('tests/{test}/generation-status',          [AptitudeTestController::class, 'generationStatus'])->name('tests.generationStatus');
                 Route::get('tests/{test}',                            [AptitudeTestController::class, 'show'])->name('tests.show');
                 Route::get('tests/{test}/edit',                       [AptitudeTestController::class, 'edit'])->name('tests.edit');
                 Route::put('tests/{test}',                            [AptitudeTestController::class, 'update'])->name('tests.update');
