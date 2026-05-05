@@ -5,13 +5,15 @@
 <div class="page-header"><h1>Integrations</h1></div>
 
 @php
-    // Tabs are gated by enabled modules so an org only sees integrations
-    // relevant to what they actually use. Super admins see everything.
+    // Tabs reflect the currently-switched org's modules — same as sidebar.
+    // Super admins with no org context (platform-level) see all tabs;
+    // when switched into an org they see only that org's relevant tabs.
     $_org = auth()->user()->currentOrganization();
     $_isSuper = auth()->user()->isSuperAdmin();
-    $_showWork    = $_isSuper || ($_org?->canUseModule('work_signals') ?? false);
-    $_showCrm     = $_isSuper || ($_org?->canUseModule('crm') ?? false);
-    $_showSupport = $_isSuper || ($_org?->canUseModule('customer_support') ?? false);
+    $_noOrgCtx = $_isSuper && !$_org;
+    $_showWork    = $_noOrgCtx || ($_org?->canUseModule('work_signals') ?? false);
+    $_showCrm     = $_noOrgCtx || ($_org?->canUseModule('crm') ?? false);
+    $_showSupport = $_noOrgCtx || ($_org?->canUseModule('customer_support') ?? false);
     // First visible tab gets the 'active' class — pick the first eligible
     $_firstActive = $_showWork ? 'tab-project-mgmt' : ($_showCrm ? 'tab-crm' : ($_showSupport ? 'tab-support' : 'tab-project-mgmt'));
 @endphp

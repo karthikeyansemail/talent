@@ -45,18 +45,23 @@
 
         {{-- Navigation --}}
         @php
-            // Cache org + module checks. Super admins see everything regardless of module toggles.
-            $_navOrg = auth()->user()->currentOrganization();
+            // Sidebar reflects the currently-switched org's modules — even for
+            // super admins. This way the demo experience for a switched-into
+            // org is accurate. Super admins still bypass module middleware on
+            // routes themselves (for direct-URL support access). When no org
+            // context exists (true platform-level super admin), show everything.
+            $_navOrg  = auth()->user()->currentOrganization();
             $_isSuper = auth()->user()->isSuperAdmin();
-            $_modHiring  = $_isSuper || ($_navOrg?->canUseModule('hiring') ?? false);
-            $_modIntv    = $_isSuper || ($_navOrg?->canUseModule('interviews') ?? false);
-            $_modSignals = $_isSuper || ($_navOrg?->canUseModule('work_signals') ?? false);
-            $_modAlloc   = $_isSuper || ($_navOrg?->canUseModule('resource_allocation') ?? false);
-            $_modCrm     = $_isSuper || ($_navOrg?->canUseModule('crm') ?? false);
-            $_modSupport = $_isSuper || ($_navOrg?->canUseModule('customer_support') ?? false);
-            $_modDrives  = $_isSuper || ($_navOrg?->canUseModule('placement_drives') ?? false);
-            $_modTests   = $_isSuper || ($_navOrg?->canUseModule('aptitude_tests') ?? false);
-            $_modStudent = $_isSuper || ($_navOrg?->canUseModule('student_tracking') ?? false);
+            $_noOrgCtx = $_isSuper && !$_navOrg;
+            $_modHiring  = $_noOrgCtx || ($_navOrg?->canUseModule('hiring') ?? false);
+            $_modIntv    = $_noOrgCtx || ($_navOrg?->canUseModule('interviews') ?? false);
+            $_modSignals = $_noOrgCtx || ($_navOrg?->canUseModule('work_signals') ?? false);
+            $_modAlloc   = $_noOrgCtx || ($_navOrg?->canUseModule('resource_allocation') ?? false);
+            $_modCrm     = $_noOrgCtx || ($_navOrg?->canUseModule('crm') ?? false);
+            $_modSupport = $_noOrgCtx || ($_navOrg?->canUseModule('customer_support') ?? false);
+            $_modDrives  = $_noOrgCtx || ($_navOrg?->canUseModule('placement_drives') ?? false);
+            $_modTests   = $_noOrgCtx || ($_navOrg?->canUseModule('aptitude_tests') ?? false);
+            $_modStudent = $_noOrgCtx || ($_navOrg?->canUseModule('student_tracking') ?? false);
         @endphp
         <nav class="sidebar-nav">
             <a href="{{ route('dashboard') }}" class="sidebar-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
