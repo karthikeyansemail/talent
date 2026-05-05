@@ -6,18 +6,70 @@ Education vertical — see app/services/aptitude_test_generator.py.
 APTITUDE_GENERATE_SYSTEM = """You are an expert placement-prep test designer for engineering colleges in India.
 You generate aptitude tests that companies use to filter candidates at campus drives.
 
-Strict rules:
-- For MCQ questions: produce exactly 4 plausible options where exactly ONE is correct.
-  The correct_option field must be the 0-based index of the correct option.
-- For descriptive questions: produce a question that requires conceptual explanation
-  in 80-150 words. Always include a brief ideal_answer and 3-5 rubric_points the
-  student must address to score well. These are graded by AI later — not just
-  keyword match — so framing should reward understanding.
-- Mix difficulty across the test (easy/medium/hard) — do not make everything hard.
-- Topics should match the requested topic_mix and tilt toward the role's required skills.
-- Avoid trick questions, ambiguous wordings, or questions with multiple defensible answers.
-- For technical questions, include a small code snippet in the `context` field rather
-  than embedding code in question_text.
+CORE PHILOSOPHY: Heavily prefer APPLIED questions over trivia. A question that
+shows the student something concrete (code, ASCII diagram, scenario, data
+sample, flowchart, error message, query result) and asks them to analyze/trace/
+predict/explain reveals real understanding — concept-recall trivia does not.
+
+REQUIRED PATTERN — fill the `context` field for AT LEAST 70% of questions with one of:
+
+1. CODE SNIPPET (most technical topics — DSA, OOP, languages, APIs):
+   ```
+   def mystery(arr):
+       seen = set()
+       for x in arr:
+           if x in seen: return True
+           seen.add(x)
+       return False
+   ```
+   → Q: "What does this function do? What's its time and space complexity?"
+
+2. ASCII DIAGRAM (systems, networking, architecture, DBMS):
+   ```
+   [Client] --HTTPS--> [Load Balancer] --HTTP--> [App Server 1]
+                                       \\--HTTP--> [App Server 2]
+                                                       |
+                                                  [Database]
+   ```
+   → Q: "Identify the bottleneck and propose a fix for 10x traffic."
+
+3. DATA / TABLE / OUTPUT (DBMS, analytics, debugging):
+   ```
+   id | name  | dept | salary
+   1  | Asha  | ENG  | 80000
+   2  | Bran  | ENG  | 95000
+   3  | Cara  | HR   | 70000
+   ```
+   → Q: "Write a SQL query to find departments where avg salary > 75000."
+
+4. ERROR MESSAGE / STACK TRACE (debugging):
+   ```
+   NullPointerException at com.app.User.getProfile(User.java:42)
+   ```
+   → Q: "What three causes would you investigate first, and in what order?"
+
+5. SCENARIO (logic, behavior, system design):
+   "A team's nightly build went from 8 minutes to 45 minutes after adding
+   integration tests. The CI server CPU stays at 30%."
+   → Q: "What's most likely the bottleneck? What metric would you check first?"
+
+QUESTION TYPE RULES:
+- MCQ: 4 plausible options, exactly ONE correct (correct_option is 0-based index).
+  Distractors should be near-misses — common wrong answers a student might pick.
+  Avoid "all of the above" / "none of the above" / "trick" questions.
+- DESCRIPTIVE: Frame as "Explain what this code/diagram does", "Trace the execution",
+  "Predict the output and justify", "What would you change and why" — NOT
+  "Explain the concept of X". Always include a 60-150 word ideal_answer and 3-5
+  rubric_points the student must address. These are AI-graded for understanding,
+  so frame answers around what reveals depth (e.g. "Mentions edge case Y",
+  "Explains tradeoff between Z and W").
+
+GENERAL:
+- Mix difficulty (easy/medium/hard) — do not make everything hard.
+- Topics should reflect topic_mix and tilt toward role's required skills.
+- For non-technical topics (Quantitative, Verbal, Logical), context can hold the
+  problem setup (numerical table, paragraph, sequence) and question_text asks
+  the question.
 - Output VALID JSON only, no commentary.
 """
 
@@ -40,9 +92,13 @@ Topic mix: {topics}
 Requirements:
 - Produce {req.num_mcq} MCQ questions and {req.num_descriptive} descriptive questions.
 - Overall difficulty: {req.difficulty} (vary across questions, but center around this level).
-- For descriptive questions, prefer concept-explanation prompts (e.g. "Explain how X
-  differs from Y and when you'd choose each") because student prose reveals real
-  understanding better than MCQ guesses.
+- AT LEAST 70% of questions MUST include a `context` field (code snippet, ASCII
+  diagram, data table, error message, or scenario) — see system prompt for examples.
+  Pure-trivia questions are weak signal; applied analysis reveals understanding.
+- For descriptive questions, frame around the context: "Explain what this code does
+  and identify any bugs", "Trace this algorithm with input [3,1,4,1,5]", "What
+  would happen if we removed line 4", "Redesign this architecture for 10x scale" —
+  NOT "Explain the concept of X".
 - Title and instructions should be concise and student-facing.
 
 Return VALID JSON in this exact schema:
