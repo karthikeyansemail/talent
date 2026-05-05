@@ -6,7 +6,7 @@
     <div>
         <h1>Students</h1>
         <p style="margin:6px 0 0;color:var(--text-muted);font-size:13px">
-            {{ $students->total() }} student{{ $students->total() === 1 ? '' : 's' }} on file. Add individually or bulk upload via CSV.
+            {{ $students->total() }} student{{ $students->total() === 1 ? '' : 's' }} across {{ $departments->count() }} department{{ $departments->count() === 1 ? '' : 's' }}.
         </p>
     </div>
     <div class="flex gap-10">
@@ -21,6 +21,25 @@
     </div>
 </div>
 
+{{-- Department-grouped summary panel --}}
+@if($departments->count() > 0)
+<div class="card" style="margin-bottom:16px">
+    <div class="card-header"><span class="card-header-icon">By Department</span></div>
+    <div class="card-body" style="padding:14px 18px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
+            @foreach($departments as $d)
+                @php $count = $deptCounts[$d->id] ?? 0; @endphp
+                <a href="{{ route('placement.students.index', ['department' => $d->id]) }}"
+                   style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid {{ request('department') == $d->id ? 'var(--primary)' : 'var(--border)' }};border-radius:8px;text-decoration:none;background:{{ request('department') == $d->id ? 'var(--primary-50)' : 'var(--bg-card)' }};transition:border-color .12s">
+                    <span style="font-size:13px;font-weight:500;color:var(--text);line-height:1.3">{{ $d->name }}</span>
+                    <span style="background:var(--bg-muted);color:var(--text-strong);font-weight:600;font-size:12px;padding:2px 8px;border-radius:10px">{{ $count }}</span>
+                </a>
+            @endforeach
+        </div>
+    </div>
+</div>
+@endif
+
 {{-- Filters --}}
 <div class="card" style="margin-bottom:16px">
     <div class="card-body" style="padding:14px 18px">
@@ -28,6 +47,13 @@
             <div class="form-group" style="margin:0;flex:1;min-width:200px">
                 <label>Search</label>
                 <input type="text" name="q" class="form-control" value="{{ request('q') }}" placeholder="Name, email, enrollment #">
+            </div>
+            <div class="form-group" style="margin:0;min-width:200px">
+                <label>Department</label>
+                <select name="department" class="form-control">
+                    <option value="">All</option>
+                    @foreach($departments as $d)<option value="{{ $d->id }}" {{ request('department') == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>@endforeach
+                </select>
             </div>
             <div class="form-group" style="margin:0;min-width:150px">
                 <label>Course</label>
@@ -44,7 +70,7 @@
                 </select>
             </div>
             <button type="submit" class="btn btn-secondary">Filter</button>
-            @if(request('q') || request('course') || request('batch'))
+            @if(request('q') || request('course') || request('batch') || request('department'))
                 <a href="{{ route('placement.students.index') }}" class="btn btn-secondary">Clear</a>
             @endif
         </form>
@@ -54,7 +80,7 @@
 <div class="card">
     <table>
         <thead>
-            <tr><th>Name</th><th>Email</th><th>Enrollment #</th><th>Course</th><th>Batch</th><th>Skills</th><th></th></tr>
+            <tr><th>Name</th><th>Email</th><th>Enrollment #</th><th>Department</th><th>Course / Batch</th><th>Skills</th><th></th></tr>
         </thead>
         <tbody>
             @forelse($students as $s)
@@ -62,11 +88,11 @@
                 <td><strong>{{ $s->first_name }} {{ $s->last_name }}</strong></td>
                 <td class="text-sm">{{ $s->email }}</td>
                 <td class="text-sm text-muted">{{ $s->enrollment_number ?? '—' }}</td>
-                <td class="text-sm text-muted">{{ $s->course ?? '—' }}</td>
-                <td class="text-sm text-muted">{{ $s->batch_year ?? '—' }}</td>
+                <td class="text-sm">{{ $s->department?->name ?? '—' }}</td>
+                <td class="text-sm text-muted">{{ $s->course ?? '—' }}{{ $s->batch_year ? ' · ' . $s->batch_year : '' }}</td>
                 <td>
-                    @foreach(array_slice($s->skills ?? [], 0, 4) as $sk)<span class="tag" style="font-size:11px">{{ $sk }}</span>@endforeach
-                    @if(count($s->skills ?? []) > 4)<span class="text-muted text-sm">+{{ count($s->skills) - 4 }}</span>@endif
+                    @foreach(array_slice($s->skills ?? [], 0, 3) as $sk)<span class="tag" style="font-size:11px">{{ $sk }}</span>@endforeach
+                    @if(count($s->skills ?? []) > 3)<span class="text-muted text-sm">+{{ count($s->skills) - 3 }}</span>@endif
                 </td>
                 <td>
                     <form method="POST" action="{{ route('placement.students.destroy', $s) }}" style="margin:0">
@@ -76,7 +102,7 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="7"><div class="empty-state"><p>No students found</p><p class="empty-hint">Add a student or bulk upload via CSV.</p></div></td></tr>
+            <tr><td colspan="7"><div class="empty-state"><p>No students found</p><p class="empty-hint">Add a student or bulk upload via CSV.</p></div></tr>
             @endforelse
         </tbody>
     </table>

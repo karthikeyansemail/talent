@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Placement;
 
 use App\Http\Controllers\Controller;
 use App\Models\Candidate;
+use App\Models\Department;
 use App\Models\TestAttempt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,13 +21,16 @@ class StudentProgressController extends Controller
     {
         $orgId = Auth::user()->currentOrganizationId();
 
-        $query = Candidate::where('organization_id', $orgId);
+        $query = Candidate::where('organization_id', $orgId)->with('department');
 
         if ($batch = $request->input('batch')) {
             $query->where('batch_year', $batch);
         }
         if ($course = $request->input('course')) {
             $query->where('course', $course);
+        }
+        if ($deptId = $request->input('department')) {
+            $query->where('department_id', $deptId);
         }
         if ($search = $request->input('q')) {
             $query->where(function ($q) use ($search) {
@@ -57,10 +61,11 @@ class StudentProgressController extends Controller
             ->groupBy('candidate_id')
             ->map(fn($atts) => $atts->take(-6)->pluck('score_pct')->toArray());
 
-        $batches = Candidate::where('organization_id', $orgId)->whereNotNull('batch_year')->distinct()->orderByDesc('batch_year')->pluck('batch_year');
-        $courses = Candidate::where('organization_id', $orgId)->whereNotNull('course')->distinct()->orderBy('course')->pluck('course');
+        $batches     = Candidate::where('organization_id', $orgId)->whereNotNull('batch_year')->distinct()->orderByDesc('batch_year')->pluck('batch_year');
+        $courses     = Candidate::where('organization_id', $orgId)->whereNotNull('course')->distinct()->orderBy('course')->pluck('course');
+        $departments = Department::where('organization_id', $orgId)->orderBy('name')->get();
 
-        return view('placement.progress.index', compact('students', 'attemptStats', 'recentAttempts', 'batches', 'courses'));
+        return view('placement.progress.index', compact('students', 'attemptStats', 'recentAttempts', 'batches', 'courses', 'departments'));
     }
 
     /**

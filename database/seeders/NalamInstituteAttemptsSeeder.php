@@ -64,23 +64,41 @@ class NalamInstituteAttemptsSeeder extends Seeder
         // ── Generate attempts ──────────────────────────────────────
         $students = Candidate::where('organization_id', $org->id)->get();
 
-        // Per-student profile: base ability 0.0-1.0 and improvement direction
-        // (determines how scores trend across attempts).
-        $profiles = [
-            'aditya.sharma@nalaminstitute.edu'  => ['ability' => 0.85, 'trend' => 'stable'],
-            'sneha.reddy@nalaminstitute.edu'    => ['ability' => 0.82, 'trend' => 'improving'],
-            'karan.patel@nalaminstitute.edu'    => ['ability' => 0.62, 'trend' => 'improving'],
-            'ananya.iyer@nalaminstitute.edu'    => ['ability' => 0.58, 'trend' => 'stable'],
-            'vivek.nair@nalaminstitute.edu'     => ['ability' => 0.65, 'trend' => 'improving'],
-            'riya.gupta@nalaminstitute.edu'     => ['ability' => 0.45, 'trend' => 'improving'],
-            'suresh.pillai@nalaminstitute.edu'  => ['ability' => 0.35, 'trend' => 'stable'],
-            'meena.joshi@nalaminstitute.edu'    => ['ability' => 0.40, 'trend' => 'improving'],
+        // Per-student profile: base ability 0.0-1.0 and improvement direction.
+        // Profiles are deterministic by email — each student keeps a consistent
+        // skill level across runs. Unlisted students get a randomized profile
+        // seeded by their email so the chart looks realistic.
+        $explicitProfiles = [
+            'aditya.sharma@nalaminstitute.edu'   => ['ability' => 0.85, 'trend' => 'stable'],
+            'sneha.reddy@nalaminstitute.edu'     => ['ability' => 0.82, 'trend' => 'improving'],
+            'priya.v@nalaminstitute.edu'         => ['ability' => 0.78, 'trend' => 'improving'],
+            'naveen.subhash@nalaminstitute.edu'  => ['ability' => 0.72, 'trend' => 'stable'],
+            'karthik.m@nalaminstitute.edu'       => ['ability' => 0.70, 'trend' => 'improving'],
+            'arjun.menon@nalaminstitute.edu'     => ['ability' => 0.68, 'trend' => 'stable'],
+            'aakash.sehgal@nalaminstitute.edu'   => ['ability' => 0.66, 'trend' => 'improving'],
+            'vivek.nair@nalaminstitute.edu'      => ['ability' => 0.65, 'trend' => 'improving'],
+            'karan.patel@nalaminstitute.edu'     => ['ability' => 0.62, 'trend' => 'improving'],
+            'ananya.iyer@nalaminstitute.edu'     => ['ability' => 0.58, 'trend' => 'stable'],
+            'sanjay.desai@nalaminstitute.edu'    => ['ability' => 0.55, 'trend' => 'improving'],
+            'tanvi.verma@nalaminstitute.edu'     => ['ability' => 0.52, 'trend' => 'improving'],
+            'shreya.mathew@nalaminstitute.edu'   => ['ability' => 0.50, 'trend' => 'stable'],
+            'lavanya.bose@nalaminstitute.edu'    => ['ability' => 0.48, 'trend' => 'improving'],
+            'riya.gupta@nalaminstitute.edu'      => ['ability' => 0.45, 'trend' => 'improving'],
+            'meena.joshi@nalaminstitute.edu'     => ['ability' => 0.40, 'trend' => 'improving'],
+            'suresh.pillai@nalaminstitute.edu'   => ['ability' => 0.35, 'trend' => 'stable'],
         ];
 
         $created = 0;
-        // Each student does the TechCorp test first (8 weeks ago) then FinanceFirst (3 weeks ago)
         foreach ($students as $student) {
-            $profile = $profiles[$student->email] ?? ['ability' => 0.5, 'trend' => 'stable'];
+            // Deterministic fallback: hash email → ability 0.40-0.85
+            if (isset($explicitProfiles[$student->email])) {
+                $profile = $explicitProfiles[$student->email];
+            } else {
+                $hashByte = ord(substr(md5($student->email), 0, 1));   // 0..255
+                $ability  = 0.40 + ($hashByte / 255) * 0.45;             // 0.40..0.85
+                $trend    = ($hashByte % 2) === 0 ? 'improving' : 'stable';
+                $profile  = ['ability' => round($ability, 2), 'trend' => $trend];
+            }
 
             // Attempt 1: TechCorp, ~8 weeks ago
             $this->createAttempt($techTest, $techDrive, $student, $profile, weeksAgo: 8, attemptNum: 1);

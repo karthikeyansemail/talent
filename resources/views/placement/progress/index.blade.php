@@ -17,6 +17,13 @@
                 <label>Search</label>
                 <input type="text" name="q" class="form-control" value="{{ request('q') }}" placeholder="Name, email, enrollment #">
             </div>
+            <div class="form-group" style="margin:0;min-width:200px">
+                <label>Department</label>
+                <select name="department" class="form-control">
+                    <option value="">All</option>
+                    @foreach($departments as $d)<option value="{{ $d->id }}" {{ request('department') == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>@endforeach
+                </select>
+            </div>
             <div class="form-group" style="margin:0;min-width:150px">
                 <label>Course</label>
                 <select name="course" class="form-control">
@@ -32,7 +39,7 @@
                 </select>
             </div>
             <button type="submit" class="btn btn-secondary">Filter</button>
-            @if(request('q') || request('course') || request('batch'))
+            @if(request('q') || request('course') || request('batch') || request('department'))
                 <a href="{{ route('placement.progress.index') }}" class="btn btn-secondary">Clear</a>
             @endif
         </form>
@@ -44,6 +51,7 @@
         <thead>
             <tr>
                 <th>Student</th>
+                <th>Department</th>
                 <th>Course / Batch</th>
                 <th>Tests</th>
                 <th>Cleared</th>
@@ -65,6 +73,7 @@
                         </a>
                         <div class="text-sm text-muted">{{ $s->enrollment_number ?? $s->email }}</div>
                     </td>
+                    <td class="text-sm">{{ $s->department?->name ?? '—' }}</td>
                     <td class="text-sm text-muted">{{ $s->course ?? '—' }} {{ $s->batch_year ? '· ' . $s->batch_year : '' }}</td>
                     <td>{{ $stats?->attempts ?? 0 }}</td>
                     <td>
@@ -93,7 +102,7 @@
                     <td class="text-sm text-muted">{{ $stats?->last_attempt ? \Carbon\Carbon::parse($stats->last_attempt)->diffForHumans() : 'Never' }}</td>
                 </tr>
             @empty
-            <tr><td colspan="7"><div class="empty-state"><p>No students found</p><p class="empty-hint">Add students via Placement → Students, then run a drive to start tracking progress.</p></div></td></tr>
+            <tr><td colspan="8"><div class="empty-state"><p>No students found</p><p class="empty-hint">Add students via Placement → Students, then run a drive to start tracking progress.</p></div></td></tr>
             @endforelse
         </tbody>
     </table>

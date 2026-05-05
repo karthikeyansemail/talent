@@ -32,23 +32,32 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Enrollment Number</label>
-                    <input type="text" name="enrollment_number" class="form-control" value="{{ old('enrollment_number') }}" placeholder="CSE_2026_001">
+                    <input type="text" name="enrollment_number" class="form-control" value="{{ old('enrollment_number') }}" placeholder="CSE2026001">
                 </div>
                 <div class="form-group">
-                    <label>Course</label>
-                    <input type="text" name="course" class="form-control" value="{{ old('course') }}" placeholder="B.Tech CSE">
+                    <label>Department</label>
+                    <select name="department_id" class="form-control">
+                        <option value="">— Select department —</option>
+                        @foreach($departments as $d)
+                            <option value="{{ $d->id }}" {{ old('department_id', $preselectDept) == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
+                    <label>Course / Program</label>
+                    <input type="text" name="course" class="form-control" value="{{ old('course') }}" placeholder="B.Tech CSE / B.Tech Mechatronics / etc.">
+                </div>
+                <div class="form-group">
                     <label>Batch Year</label>
                     <input type="number" name="batch_year" min="2000" max="2100" class="form-control" value="{{ old('batch_year') }}" placeholder="2026">
                 </div>
-                <div class="form-group">
-                    <label>Skills</label>
-                    <input type="text" name="skills" class="form-control" value="{{ old('skills') }}" placeholder="Python, DSA, SQL">
-                    <small class="text-muted">Comma or semicolon separated</small>
-                </div>
+            </div>
+            <div class="form-group">
+                <label>Skills</label>
+                <input type="text" name="skills" class="form-control" value="{{ old('skills') }}" placeholder="Python, DSA, SQL">
+                <small class="text-muted">Comma or semicolon separated</small>
             </div>
             <div class="flex gap-10" style="margin-top:20px">
                 <button type="submit" class="btn btn-primary">Add Student</button>

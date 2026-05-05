@@ -8,6 +8,7 @@
         <h1>{{ $student->first_name }} {{ $student->last_name }}</h1>
         <p style="margin:6px 0 0;color:var(--text-muted);font-size:13px">
             {{ $student->enrollment_number ?? $student->email }}
+            @if($student->department) · <strong style="color:var(--text)">{{ $student->department->name }}</strong> @endif
             @if($student->course) · {{ $student->course }} @endif
             @if($student->batch_year) · Batch {{ $student->batch_year }} @endif
         </p>
