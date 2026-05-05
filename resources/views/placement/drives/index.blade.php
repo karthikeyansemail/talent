@@ -2,20 +2,51 @@
 @section('title', 'Placement Drives')
 @section('page-title', 'Placement Drives')
 @section('content')
-<div class="page-header">
-    <h1>Placement Drives</h1>
-    <p style="margin:6px 0 0;color:var(--text-muted);font-size:13px">
-        Manage company recruitment drives at your institution. Create a drive from a hiring document and the system generates aptitude tests automatically.
-    </p>
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+        <h1>Placement Drives</h1>
+        <p style="margin:6px 0 0;color:var(--text-muted);font-size:13px">
+            Companies recruiting at your institution. Each drive can have an aptitude test, interview round, and cleared-students list.
+        </p>
+    </div>
+    <a href="{{ route('placement.drives.create') }}" class="btn btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Drive
+    </a>
 </div>
 
 <div class="card">
-    <div class="card-body" style="text-align:center;padding:60px 30px">
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 16px;display:block"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"/></svg>
-        <h3 style="font-size:16px;color:var(--text-strong);margin:0 0 8px">Drive management coming next</h3>
-        <p style="color:var(--text-muted);font-size:13px;margin:0;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.5">
-            The placement drive scaffolding is in place ({{ $drives->count() }} drive{{ $drives->count() === 1 ? '' : 's' }} in the database). Full create/edit UI ships in the next commit.
-        </p>
-    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Company</th>
+                <th>Role</th>
+                <th>Drive Date</th>
+                <th>Package</th>
+                <th>Status</th>
+                <th>Attempts</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($drives as $d)
+            <tr>
+                <td><strong>{{ $d->company_name }}</strong></td>
+                <td class="text-sm">{{ $d->role_title }}</td>
+                <td class="text-sm text-muted">{{ $d->drive_date?->format('d M Y') ?? '—' }}</td>
+                <td class="text-sm">{{ $d->package_lpa ? '₹' . $d->package_lpa . ' LPA' : '—' }}</td>
+                <td>@include('components.stage-badge', ['stage' => $d->status])</td>
+                <td>{{ $d->attempts_count ?? 0 }}</td>
+                <td>
+                    <div class="table-actions">
+                        <a href="{{ route('placement.drives.show', $d) }}" class="btn btn-sm btn-secondary">View</a>
+                    </div>
+                </td>
+            </tr>
+            @empty
+            <tr><td colspan="7"><div class="empty-state"><p>No drives yet</p><p class="empty-hint">Click "New Drive" to add your first placement drive.</p></div></td></tr>
+            @endforelse
+        </tbody>
+    </table>
 </div>
 @endsection

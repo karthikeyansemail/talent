@@ -95,8 +95,24 @@ Route::middleware(['auth'])->group(function () {
         ->name('placement.')
         ->group(function () {
             Route::middleware(['module:placement_drives'])->group(function () {
-                Route::get('drives',   [PlacementDriveController::class, 'index'])->name('drives.index');
-                Route::get('students', [PlacementStudentController::class, 'index'])->name('students.index');
+                // Drives — full CRUD with AI document parser
+                Route::post('drives/parse-document', [PlacementDriveController::class, 'parseDocument'])->name('drives.parseDocument');
+                Route::get('drives',                  [PlacementDriveController::class, 'index'])->name('drives.index');
+                Route::get('drives/create',           [PlacementDriveController::class, 'create'])->name('drives.create');
+                Route::post('drives',                 [PlacementDriveController::class, 'store'])->name('drives.store');
+                Route::get('drives/{drive}',          [PlacementDriveController::class, 'show'])->name('drives.show');
+                Route::get('drives/{drive}/edit',     [PlacementDriveController::class, 'edit'])->name('drives.edit');
+                Route::put('drives/{drive}',          [PlacementDriveController::class, 'update'])->name('drives.update');
+                Route::delete('drives/{drive}',       [PlacementDriveController::class, 'destroy'])->name('drives.destroy');
+
+                // Students (CSV bulk upload + template)
+                Route::get('students',                [PlacementStudentController::class, 'index'])->name('students.index');
+                Route::get('students/create',         [PlacementStudentController::class, 'create'])->name('students.create');
+                Route::post('students',               [PlacementStudentController::class, 'store'])->name('students.store');
+                Route::get('students/template',       [PlacementStudentController::class, 'template'])->name('students.template');
+                Route::get('students/bulk-upload',    [PlacementStudentController::class, 'bulkUpload'])->name('students.bulkUpload');
+                Route::post('students/bulk-upload',   [PlacementStudentController::class, 'bulkStore'])->name('students.bulkStore');
+                Route::delete('students/{student}',   [PlacementStudentController::class, 'destroy'])->name('students.destroy');
             });
             Route::middleware(['module:aptitude_tests'])->group(function () {
                 Route::get('tests', [AptitudeTestController::class, 'index'])->name('tests.index');
