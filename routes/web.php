@@ -144,7 +144,8 @@ Route::middleware(['auth'])->group(function () {
                 Route::delete('tests/{test}/questions/{question}',    [AptitudeTestController::class, 'destroyQuestion'])->name('tests.questions.destroy');
             });
             Route::middleware(['module:student_tracking'])->group(function () {
-                Route::get('progress', [StudentProgressController::class, 'index'])->name('progress.index');
+                Route::get('progress',                  [StudentProgressController::class, 'index'])->name('progress.index');
+                Route::get('progress/{student}',        [StudentProgressController::class, 'show'])->name('progress.show');
             });
         });
 
