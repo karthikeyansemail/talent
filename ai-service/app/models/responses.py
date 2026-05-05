@@ -330,3 +330,45 @@ class WorkPulseInsightResponse(BaseModel):
     task_summary: str = Field(
         default="", description="Brief statement of what data was analyzed"
     )
+
+
+# ─── Aptitude test generation + grading ────────────────────────
+
+class AptitudeQuestion(BaseModel):
+    """A single AI-generated aptitude question."""
+
+    type: str = Field(..., description="mcq | descriptive")
+    question_text: str = Field(..., description="The question prompt")
+    context: str = Field(default="", description="Optional code snippet, scenario, or extra material")
+    topic: str = Field(default="", description="Quantitative | Logical | Verbal | Technical | etc.")
+    difficulty: str = Field(default="medium", description="easy | medium | hard")
+    marks: int = Field(default=1, description="Marks awarded for a fully correct answer")
+
+    # MCQ-specific
+    options: list[str] = Field(default_factory=list, description="MCQ options (4 entries usually)")
+    correct_option: int | None = Field(default=None, description="Index 0-based of the correct MCQ option")
+
+    # Descriptive-specific
+    ideal_answer: str = Field(default="", description="Gold-standard answer to grade against")
+    rubric_points: list[str] = Field(default_factory=list, description="Specific points the student should mention")
+    expected_word_count: int | None = Field(default=None, description="Suggested length")
+
+
+class AptitudeTestResponse(BaseModel):
+    """AI-generated aptitude test ready to be saved + published."""
+
+    title: str = Field(..., description="Suggested test title")
+    instructions: str = Field(default="", description="Instructions shown to students before they start")
+    questions: list[AptitudeQuestion] = Field(..., description="All generated questions, in order")
+
+
+class AptitudeAnswerGradeResponse(BaseModel):
+    """AI grading result for one descriptive answer."""
+
+    marks_awarded: float = Field(..., description="Marks awarded out of max_marks")
+    understanding_score: float = Field(..., description="0-100 conceptual understanding score")
+    rubric_coverage: list[bool] = Field(
+        default_factory=list,
+        description="One bool per input rubric point: true if covered",
+    )
+    ai_feedback: str = Field(default="", description="2-3 sentence feedback for the student")

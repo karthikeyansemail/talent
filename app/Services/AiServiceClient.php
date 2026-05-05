@@ -46,6 +46,16 @@ class AiServiceClient
         return $this->call('/parse-resume-profile', $data, $orgId);
     }
 
+    public function generateAptitudeTest(array $data, ?int $orgId = null): array
+    {
+        return $this->call('/generate-aptitude-test', $data, $orgId);
+    }
+
+    public function gradeDescriptiveAnswer(array $data, ?int $orgId = null): array
+    {
+        return $this->call('/grade-descriptive-answer', $data, $orgId);
+    }
+
     public function parseProjectRequirements(array $data, ?int $orgId = null): array
     {
         return $this->call('/parse-project-requirements', $data, $orgId);

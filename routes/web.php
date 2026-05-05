@@ -115,7 +115,19 @@ Route::middleware(['auth'])->group(function () {
                 Route::delete('students/{student}',   [PlacementStudentController::class, 'destroy'])->name('students.destroy');
             });
             Route::middleware(['module:aptitude_tests'])->group(function () {
-                Route::get('tests', [AptitudeTestController::class, 'index'])->name('tests.index');
+                Route::get('tests',                                   [AptitudeTestController::class, 'index'])->name('tests.index');
+                Route::get('tests/create',                            [AptitudeTestController::class, 'create'])->name('tests.create');
+                Route::post('tests/generate',                         [AptitudeTestController::class, 'generate'])->name('tests.generate');
+                Route::get('tests/{test}',                            [AptitudeTestController::class, 'show'])->name('tests.show');
+                Route::get('tests/{test}/edit',                       [AptitudeTestController::class, 'edit'])->name('tests.edit');
+                Route::put('tests/{test}',                            [AptitudeTestController::class, 'update'])->name('tests.update');
+                Route::post('tests/{test}/publish',                   [AptitudeTestController::class, 'publish'])->name('tests.publish');
+                Route::post('tests/{test}/unpublish',                 [AptitudeTestController::class, 'unpublish'])->name('tests.unpublish');
+                Route::delete('tests/{test}',                         [AptitudeTestController::class, 'destroy'])->name('tests.destroy');
+                // Question editing
+                Route::post('tests/{test}/questions',                 [AptitudeTestController::class, 'addQuestion'])->name('tests.questions.add');
+                Route::put('tests/{test}/questions/{question}',       [AptitudeTestController::class, 'updateQuestion'])->name('tests.questions.update');
+                Route::delete('tests/{test}/questions/{question}',    [AptitudeTestController::class, 'destroyQuestion'])->name('tests.questions.destroy');
             });
             Route::middleware(['module:student_tracking'])->group(function () {
                 Route::get('progress', [StudentProgressController::class, 'index'])->name('progress.index');

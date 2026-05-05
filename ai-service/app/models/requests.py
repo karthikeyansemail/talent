@@ -179,6 +179,41 @@ class SprintRecord(BaseModel):
     end_date: str = Field(default="", description="Sprint end date (YYYY-MM-DD)")
 
 
+class AptitudeTestGenerateRequest(BaseModel):
+    """Request payload for AI aptitude test generation.
+
+    Driver of the test is the placement drive context (company + role +
+    skills) plus configuration for question count / type mix / difficulty.
+    """
+
+    company_name: str = Field(..., description="Company hosting the placement drive")
+    role_title: str = Field(..., description="Role students are being tested for")
+    role_description: str = Field(default="", description="Optional longer brief")
+    required_skills: list[str] = Field(default_factory=list, description="Skills the test should cover")
+    eligible_courses: list[str] = Field(default_factory=list, description="Courses students are from (B.Tech CSE, etc.)")
+    num_mcq: int = Field(default=10, ge=0, le=50, description="Number of MCQ questions to generate")
+    num_descriptive: int = Field(default=3, ge=0, le=15, description="Number of descriptive (paragraph) questions")
+    difficulty: str = Field(default="medium", description="easy | medium | hard")
+    topic_mix: list[str] = Field(
+        default_factory=lambda: ["Quantitative", "Logical Reasoning", "Verbal", "Technical"],
+        description="Topic categories to draw from",
+    )
+
+
+class AptitudeAnswerGradeRequest(BaseModel):
+    """Request payload for AI grading of a single descriptive answer."""
+
+    question_text: str = Field(..., description="The question that was asked")
+    context: str = Field(default="", description="Code snippet / scenario shown with the question")
+    ideal_answer: str = Field(..., description="Gold-standard answer for reference")
+    rubric_points: list[str] = Field(
+        default_factory=list,
+        description="Specific points the answer should cover",
+    )
+    student_answer: str = Field(..., description="What the student wrote")
+    max_marks: float = Field(default=5.0, description="Maximum marks for this question")
+
+
 class WorkPulseAnalyzeRequest(BaseModel):
     """Request payload for AI work pulse analysis."""
 

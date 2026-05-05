@@ -17,6 +17,8 @@ from app.models.requests import (
     ProjectParsingRequest,
     SignalAnalysisRequest,
     WorkPulseAnalyzeRequest,
+    AptitudeTestGenerateRequest,
+    AptitudeAnswerGradeRequest,
 )
 from app.models.responses import (
     ResumeAnalysisResponse,
@@ -28,11 +30,17 @@ from app.models.responses import (
     ProjectParsingResponse,
     SignalAnalysisResponse,
     WorkPulseInsightResponse,
+    AptitudeTestResponse,
+    AptitudeAnswerGradeResponse,
 )
 from app.services.resume_analyzer import analyze_resume, extract_resume_signals
 from app.services.jira_signal_extractor import extract_jira_signals
 from app.services.resource_matcher import match_project_resources
 from app.services.job_parser import parse_job_description
+from app.services.aptitude_test_generator import (
+    generate_aptitude_test,
+    grade_descriptive_answer,
+)
 from app.services.resume_profile_parser import parse_resume_profile
 from app.services.project_parser import parse_project_requirements
 from app.services.signal_analyzer import analyze_signals
@@ -366,6 +374,45 @@ async def extract_code_endpoint(request: dict) -> dict:
     except Exception as exc:
         logger.exception("Unhandled error in /extract-code-from-screenshot")
         return {"code": "", "language": "", "description": ""}
+
+
+# ---------------------------------------------------------------------------
+# Aptitude Test Generation + Grading (Education vertical)
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/generate-aptitude-test",
+    tags=["education"],
+    response_model=AptitudeTestResponse,
+    summary="AI-generate a placement aptitude test from drive context",
+)
+async def generate_aptitude_test_endpoint(
+    request: AptitudeTestGenerateRequest,
+) -> AptitudeTestResponse:
+    """Generate a full mix of MCQ + descriptive questions for a placement drive."""
+    try:
+        return await generate_aptitude_test(request)
+    except Exception as exc:
+        logger.exception("Unhandled error in /generate-aptitude-test")
+        raise HTTPException(status_code=500, detail=f"Test generation failed: {exc}") from exc
+
+
+@app.post(
+    "/grade-descriptive-answer",
+    tags=["education"],
+    response_model=AptitudeAnswerGradeResponse,
+    summary="AI-grade a single descriptive answer against an ideal answer + rubric",
+)
+async def grade_descriptive_answer_endpoint(
+    request: AptitudeAnswerGradeRequest,
+) -> AptitudeAnswerGradeResponse:
+    """Grade conceptual understanding of a free-text answer."""
+    try:
+        return await grade_descriptive_answer(request)
+    except Exception as exc:
+        logger.exception("Unhandled error in /grade-descriptive-answer")
+        raise HTTPException(status_code=500, detail=f"Grading failed: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
