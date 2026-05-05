@@ -9,42 +9,83 @@
     </p>
 </div>
 
-{{-- Filters --}}
-<div class="card" style="margin-bottom:16px">
-    <div class="card-body" style="padding:14px 18px">
-        <form method="GET" action="{{ route('placement.progress.index') }}" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-            <div class="form-group" style="margin:0;flex:1;min-width:200px">
-                <label>Search</label>
-                <input type="text" name="q" class="form-control" value="{{ request('q') }}" placeholder="Name, email, enrollment #">
-            </div>
-            <div class="form-group" style="margin:0;min-width:200px">
-                <label>Department</label>
-                <select name="department" class="form-control">
-                    <option value="">All</option>
-                    @foreach($departments as $d)<option value="{{ $d->id }}" {{ request('department') == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>@endforeach
-                </select>
-            </div>
-            <div class="form-group" style="margin:0;min-width:150px">
-                <label>Course</label>
-                <select name="course" class="form-control">
-                    <option value="">All</option>
-                    @foreach($courses as $c)<option value="{{ $c }}" {{ request('course') === $c ? 'selected' : '' }}>{{ $c }}</option>@endforeach
-                </select>
-            </div>
-            <div class="form-group" style="margin:0;min-width:120px">
-                <label>Batch</label>
-                <select name="batch" class="form-control">
-                    <option value="">All</option>
-                    @foreach($batches as $b)<option value="{{ $b }}" {{ request('batch') == $b ? 'selected' : '' }}>{{ $b }}</option>@endforeach
-                </select>
-            </div>
-            <button type="submit" class="btn btn-secondary">Filter</button>
-            @if(request('q') || request('course') || request('batch') || request('department'))
-                <a href="{{ route('placement.progress.index') }}" class="btn btn-secondary">Clear</a>
+{{-- Filters in a single auto-submitting form --}}
+<form method="GET" action="{{ route('placement.progress.index') }}" id="progressFilters">
+
+    {{-- Multi-select department chips --}}
+    @if($departments->count() > 0)
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+            <span class="card-header-icon">Filter by Department</span>
+            @if($selectedDepts->isNotEmpty())
+                <span class="text-sm text-muted">{{ $selectedDepts->count() }} selected · <a href="{{ route('placement.progress.index', request()->except(['departments', 'department'])) }}">clear</a></span>
             @endif
-        </form>
+        </div>
+        <div class="card-body" style="padding:14px 18px">
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+                @foreach($departments as $d)
+                    @php $isSelected = $selectedDepts->contains($d->id); $count = $deptCounts[$d->id] ?? 0; @endphp
+                    <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid {{ $isSelected ? 'var(--primary)' : 'var(--border)' }};border-radius:18px;cursor:pointer;background:{{ $isSelected ? 'var(--primary-50)' : 'var(--bg-card)' }};font-size:13px;transition:all .12s;user-select:none">
+                        <input type="checkbox" name="departments[]" value="{{ $d->id }}"
+                            {{ $isSelected ? 'checked' : '' }}
+                            onchange="document.getElementById('progressFilters').submit()"
+                            style="display:none">
+                        <span style="font-weight:{{ $isSelected ? '600' : '500' }};color:{{ $isSelected ? 'var(--primary)' : 'var(--text)' }}">{{ $d->name }}</span>
+                        <span style="background:{{ $isSelected ? 'var(--primary)' : 'var(--bg-muted)' }};color:{{ $isSelected ? '#fff' : 'var(--text-muted)' }};padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600">{{ $count }}</span>
+                    </label>
+                @endforeach
+            </div>
+        </div>
     </div>
-</div>
+    @endif
+
+    {{-- Other filters --}}
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-body" style="padding:14px 18px">
+            <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+                <div class="form-group" style="margin:0;flex:1;min-width:200px">
+                    <label>Search</label>
+                    <input type="text" name="q" class="form-control" value="{{ request('q') }}" placeholder="Name, email, enrollment #">
+                </div>
+                <div class="form-group" style="margin:0;min-width:240px">
+                    <label>Placement Drive</label>
+                    <select name="drive" class="form-control" onchange="document.getElementById('progressFilters').submit()">
+                        <option value="">All drives</option>
+                        @foreach($drives as $dr)
+                            <option value="{{ $dr->id }}" {{ request('drive') == $dr->id ? 'selected' : '' }}>{{ $dr->company_name }} — {{ $dr->role_title }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;min-width:150px">
+                    <label>Course</label>
+                    <select name="course" class="form-control" onchange="document.getElementById('progressFilters').submit()">
+                        <option value="">All</option>
+                        @foreach($courses as $c)<option value="{{ $c }}" {{ request('course') === $c ? 'selected' : '' }}>{{ $c }}</option>@endforeach
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;min-width:120px">
+                    <label>Batch</label>
+                    <select name="batch" class="form-control" onchange="document.getElementById('progressFilters').submit()">
+                        <option value="">All</option>
+                        @foreach($batches as $b)<option value="{{ $b }}" {{ request('batch') == $b ? 'selected' : '' }}>{{ $b }}</option>@endforeach
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-secondary">Apply</button>
+                @if(request('q') || request('course') || request('batch') || request('drive') || $selectedDepts->isNotEmpty())
+                    <a href="{{ route('placement.progress.index') }}" class="btn btn-secondary">Clear all</a>
+                @endif
+            </div>
+            @if(request('drive'))
+                @php $selDrive = $drives->firstWhere('id', (int) request('drive')); @endphp
+                @if($selDrive)
+                    <div style="margin-top:10px;padding:8px 12px;background:var(--primary-50);border-radius:6px;font-size:12.5px;color:var(--text)">
+                        Showing students enrolled in <strong>{{ $selDrive->company_name }} — {{ $selDrive->role_title }}</strong> drive.
+                    </div>
+                @endif
+            @endif
+        </div>
+    </div>
+</form>
 
 <div class="card">
     <table>

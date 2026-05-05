@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Placement;
 use App\Http\Controllers\Controller;
 use App\Models\Candidate;
 use App\Models\Department;
+use App\Models\PlacementDrive;
+use App\Models\TestAttempt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -36,8 +38,28 @@ class StudentController extends Controller
         if ($course = $request->input('course')) {
             $query->where('course', $course);
         }
-        if ($deptId = $request->input('department')) {
-            $query->where('department_id', $deptId);
+
+        // Multi-select departments (?departments[]=1&departments[]=2)
+        // Backward-compat: ?department=1 (single value) still works.
+        $selectedDepts = collect((array) $request->input('departments', []))
+            ->merge((array) $request->input('department'))
+            ->filter()
+            ->map(fn($v) => (int) $v)
+            ->unique()
+            ->values();
+        if ($selectedDepts->isNotEmpty()) {
+            $query->whereIn('department_id', $selectedDepts);
+        }
+
+        // Placement drive filter — students who have at least one attempt
+        // for any test of the selected drive (i.e. enrolled / undergoing).
+        if ($driveId = $request->input('drive')) {
+            $candidateIdsInDrive = TestAttempt::where('organization_id', $orgId)
+                ->where('placement_drive_id', $driveId)
+                ->whereNotNull('candidate_id')
+                ->pluck('candidate_id')
+                ->unique();
+            $query->whereIn('id', $candidateIdsInDrive);
         }
 
         $students = $query->orderBy('first_name')->paginate(50)->withQueryString();
@@ -48,15 +70,27 @@ class StudentController extends Controller
         $courses = Candidate::where('organization_id', $orgId)
             ->whereNotNull('course')->distinct()->orderBy('course')->pluck('course');
         $departments = Department::where('organization_id', $orgId)->orderBy('name')->get();
+        $drives = PlacementDrive::where('organization_id', $orgId)
+            ->whereIn('status', ['open', 'closed', 'completed'])
+            ->orderByDesc('drive_date')
+            ->get(['id', 'company_name', 'role_title']);
 
-        // Per-department counts for the dept-grouped summary panel
-        $deptCounts = Candidate::where('organization_id', $orgId)
-            ->whereNotNull('department_id')
+        // Per-department counts (respect drive filter so chip counts reflect
+        // the active drive context — answers "how many CSE students for TCS?")
+        $deptCountsQuery = Candidate::where('organization_id', $orgId)->whereNotNull('department_id');
+        if ($driveId) {
+            $candidateIdsInDrive = $candidateIdsInDrive ?? collect();
+            $deptCountsQuery->whereIn('id', $candidateIdsInDrive);
+        }
+        $deptCounts = $deptCountsQuery
             ->selectRaw('department_id, COUNT(*) as cnt')
             ->groupBy('department_id')
             ->pluck('cnt', 'department_id');
 
-        return view('placement.students.index', compact('students', 'batches', 'courses', 'departments', 'deptCounts'));
+        return view('placement.students.index', compact(
+            'students', 'batches', 'courses', 'departments', 'deptCounts',
+            'drives', 'selectedDepts'
+        ));
     }
 
     public function create(Request $request)

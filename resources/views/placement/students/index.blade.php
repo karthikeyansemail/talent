@@ -6,7 +6,7 @@
     <div>
         <h1>Students</h1>
         <p style="margin:6px 0 0;color:var(--text-muted);font-size:13px">
-            {{ $students->total() }} student{{ $students->total() === 1 ? '' : 's' }} across {{ $departments->count() }} department{{ $departments->count() === 1 ? '' : 's' }}.
+            {{ $students->total() }} student{{ $students->total() === 1 ? '' : 's' }} matching current filters · {{ $departments->count() }} department{{ $departments->count() === 1 ? '' : 's' }} configured.
         </p>
     </div>
     <div class="flex gap-10">
@@ -21,61 +21,87 @@
     </div>
 </div>
 
-{{-- Department-grouped summary panel --}}
-@if($departments->count() > 0)
-<div class="card" style="margin-bottom:16px">
-    <div class="card-header"><span class="card-header-icon">By Department</span></div>
-    <div class="card-body" style="padding:14px 18px">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
-            @foreach($departments as $d)
-                @php $count = $deptCounts[$d->id] ?? 0; @endphp
-                <a href="{{ route('placement.students.index', ['department' => $d->id]) }}"
-                   style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid {{ request('department') == $d->id ? 'var(--primary)' : 'var(--border)' }};border-radius:8px;text-decoration:none;background:{{ request('department') == $d->id ? 'var(--primary-50)' : 'var(--bg-card)' }};transition:border-color .12s">
-                    <span style="font-size:13px;font-weight:500;color:var(--text);line-height:1.3">{{ $d->name }}</span>
-                    <span style="background:var(--bg-muted);color:var(--text-strong);font-weight:600;font-size:12px;padding:2px 8px;border-radius:10px">{{ $count }}</span>
-                </a>
-            @endforeach
+{{-- All filters in a single auto-submitting form so chips + dropdowns work together --}}
+<form method="GET" action="{{ route('placement.students.index') }}" id="studentFilters">
+
+    {{-- Multi-select department chips --}}
+    @if($departments->count() > 0)
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+            <span class="card-header-icon">Filter by Department</span>
+            @if($selectedDepts->isNotEmpty())
+                <span class="text-sm text-muted">{{ $selectedDepts->count() }} selected · <a href="{{ route('placement.students.index', request()->except(['departments', 'department'])) }}">clear</a></span>
+            @endif
+        </div>
+        <div class="card-body" style="padding:14px 18px">
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+                @foreach($departments as $d)
+                    @php
+                        $isSelected = $selectedDepts->contains($d->id);
+                        $count = $deptCounts[$d->id] ?? 0;
+                    @endphp
+                    <label class="dept-chip {{ $isSelected ? 'selected' : '' }}"
+                        style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid {{ $isSelected ? 'var(--primary)' : 'var(--border)' }};border-radius:18px;cursor:pointer;background:{{ $isSelected ? 'var(--primary-50)' : 'var(--bg-card)' }};font-size:13px;transition:all .12s;user-select:none">
+                        <input type="checkbox" name="departments[]" value="{{ $d->id }}"
+                            {{ $isSelected ? 'checked' : '' }}
+                            onchange="document.getElementById('studentFilters').submit()"
+                            style="display:none">
+                        <span style="font-weight:{{ $isSelected ? '600' : '500' }};color:{{ $isSelected ? 'var(--primary)' : 'var(--text)' }}">{{ $d->name }}</span>
+                        <span style="background:{{ $isSelected ? 'var(--primary)' : 'var(--bg-muted)' }};color:{{ $isSelected ? '#fff' : 'var(--text-muted)' }};padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600">{{ $count }}</span>
+                    </label>
+                @endforeach
+            </div>
         </div>
     </div>
-</div>
-@endif
+    @endif
 
-{{-- Filters --}}
-<div class="card" style="margin-bottom:16px">
-    <div class="card-body" style="padding:14px 18px">
-        <form method="GET" action="{{ route('placement.students.index') }}" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-            <div class="form-group" style="margin:0;flex:1;min-width:200px">
-                <label>Search</label>
-                <input type="text" name="q" class="form-control" value="{{ request('q') }}" placeholder="Name, email, enrollment #">
+    {{-- Other filters --}}
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-body" style="padding:14px 18px">
+            <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+                <div class="form-group" style="margin:0;flex:1;min-width:200px">
+                    <label>Search</label>
+                    <input type="text" name="q" class="form-control" value="{{ request('q') }}" placeholder="Name, email, enrollment #">
+                </div>
+                <div class="form-group" style="margin:0;min-width:240px">
+                    <label>Placement Drive</label>
+                    <select name="drive" class="form-control" onchange="document.getElementById('studentFilters').submit()">
+                        <option value="">All drives</option>
+                        @foreach($drives as $dr)
+                            <option value="{{ $dr->id }}" {{ request('drive') == $dr->id ? 'selected' : '' }}>{{ $dr->company_name }} — {{ $dr->role_title }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;min-width:150px">
+                    <label>Course</label>
+                    <select name="course" class="form-control" onchange="document.getElementById('studentFilters').submit()">
+                        <option value="">All</option>
+                        @foreach($courses as $c)<option value="{{ $c }}" {{ request('course') === $c ? 'selected' : '' }}>{{ $c }}</option>@endforeach
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;min-width:120px">
+                    <label>Batch</label>
+                    <select name="batch" class="form-control" onchange="document.getElementById('studentFilters').submit()">
+                        <option value="">All</option>
+                        @foreach($batches as $b)<option value="{{ $b }}" {{ request('batch') == $b ? 'selected' : '' }}>{{ $b }}</option>@endforeach
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-secondary">Apply</button>
+                @if(request('q') || request('course') || request('batch') || request('drive') || $selectedDepts->isNotEmpty())
+                    <a href="{{ route('placement.students.index') }}" class="btn btn-secondary">Clear all</a>
+                @endif
             </div>
-            <div class="form-group" style="margin:0;min-width:200px">
-                <label>Department</label>
-                <select name="department" class="form-control">
-                    <option value="">All</option>
-                    @foreach($departments as $d)<option value="{{ $d->id }}" {{ request('department') == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>@endforeach
-                </select>
-            </div>
-            <div class="form-group" style="margin:0;min-width:150px">
-                <label>Course</label>
-                <select name="course" class="form-control">
-                    <option value="">All</option>
-                    @foreach($courses as $c)<option value="{{ $c }}" {{ request('course') === $c ? 'selected' : '' }}>{{ $c }}</option>@endforeach
-                </select>
-            </div>
-            <div class="form-group" style="margin:0;min-width:120px">
-                <label>Batch</label>
-                <select name="batch" class="form-control">
-                    <option value="">All</option>
-                    @foreach($batches as $b)<option value="{{ $b }}" {{ request('batch') == $b ? 'selected' : '' }}>{{ $b }}</option>@endforeach
-                </select>
-            </div>
-            <button type="submit" class="btn btn-secondary">Filter</button>
-            @if(request('q') || request('course') || request('batch') || request('department'))
-                <a href="{{ route('placement.students.index') }}" class="btn btn-secondary">Clear</a>
+            @if(request('drive'))
+                @php $selDrive = $drives->firstWhere('id', (int) request('drive')); @endphp
+                @if($selDrive)
+                    <div style="margin-top:10px;padding:8px 12px;background:var(--primary-50);border-radius:6px;font-size:12.5px;color:var(--text)">
+                        Showing students enrolled in <strong>{{ $selDrive->company_name }} — {{ $selDrive->role_title }}</strong> drive.
+                    </div>
+                @endif
             @endif
-        </form>
+        </div>
     </div>
-</div>
+</form>
 
 <div class="card">
     <table>
@@ -102,7 +128,7 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="7"><div class="empty-state"><p>No students found</p><p class="empty-hint">Add a student or bulk upload via CSV.</p></div></tr>
+            <tr><td colspan="7"><div class="empty-state"><p>No students match these filters</p><p class="empty-hint">Try clearing some filters above.</p></div></tr>
             @endforelse
         </tbody>
     </table>
